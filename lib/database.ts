@@ -1,0 +1,104 @@
+import { supabaseBrowserClient } from "./supabaseClient";
+
+/**
+ * Get the first business associated with a user
+ */
+export async function getUserBusiness(userId: string) {
+  try {
+    const { data, error } = await supabaseBrowserClient
+      .from("businesses")
+      .select("*")
+      .eq("user_id", userId)
+      .limit(1)
+      .single();
+
+    if (error) {
+      console.error("Error fetching user business:", error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in getUserBusiness:", error);
+    return null;
+  }
+}
+
+/**
+ * Get product with its video ideas from business_products table
+ */
+export async function getProductVideoIdeas(productId: string) {
+  try {
+    const { data, error } = await supabaseBrowserClient
+      .from("business_products")
+      .select("*")
+      .eq("id", productId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching product video ideas:", error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in getProductVideoIdeas:", error);
+    return null;
+  }
+}
+
+/**
+ * Get the latest product for a business (for retrieving just-created product)
+ */
+export async function getLatestBusinessProduct(businessId: string) {
+  try {
+    const { data, error } = await supabaseBrowserClient
+      .from("business_products")
+      .select("*")
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) {
+      console.error("Error fetching latest business product:", error);
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in getLatestBusinessProduct:", error);
+    return null;
+  }
+}
+
+/**
+ * Get product images from a product
+ */
+export async function getProductImages(productId: string) {
+  try {
+    const { data, error } = await supabaseBrowserClient
+      .from("business_products")
+      .select("product_images")
+      .eq("id", productId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching product images:", error);
+      return [];
+    }
+
+    // product_images is stored as JSONB, could be array or object
+    const images = data?.product_images;
+    if (Array.isArray(images)) {
+      return images;
+    } else if (images && typeof images === 'object') {
+      // If it's an object with image URLs, extract the values
+      return Object.values(images).filter(val => typeof val === 'string');
+    }
+    return [];
+  } catch (error) {
+    console.error("Error in getProductImages:", error);
+    return [];
+  }
+}

@@ -1,0 +1,58 @@
+"use client";
+
+const galleryItems = [
+  {
+    id: 1,
+    name: "Meine gespeicherten Projekte",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+      </svg>
+    ),
+  },
+  {
+    id: 2,
+    name: "Inspirationen",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+      </svg>
+    ),
+  },
+];
+
+interface ChatHistoryProps {
+  selectedId: number | null;
+  onSelect: (id: number) => void;
+}
+
+export default function ChatHistory({ selectedId, onSelect }: ChatHistoryProps) {
+  return (
+    <div className="px-4 pb-6 mt-6">
+      <p className="text-xs text-gray-400 font-medium mb-2">Gallery</p>
+      <div className="space-y-1">
+        {galleryItems.map((item) => {
+          const isActive = item.id === selectedId;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onSelect(item.id)}
+              className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors flex items-center gap-3 font-medium ${
+                isActive
+                  ? "bg-gray-900 text-white shadow-sm"
+                  : "text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+              }`}
+            >
+              <span className={`flex-shrink-0 ${isActive ? "text-white" : "text-gray-600 dark:text-gray-400"}`}>
+                {item.icon}
+              </span>
+              <span className="truncate">{item.name}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
