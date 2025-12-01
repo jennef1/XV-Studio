@@ -18,8 +18,8 @@ export default function HeroSection({ onOpenLogin }: HeroSectionProps) {
 
         {/* Main Headline */}
         <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight tracking-tight">
-          <div className="text-gray-900">KI-Marketing für dein KMU</div>
-          <div className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600">
+          <div className="text-gray-900 whitespace-nowrap">KI-Marketing für dein KMU</div>
+          <div className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600 whitespace-nowrap">
             Geführt, schnell & kostengünstig.
           </div>
         </h1>
