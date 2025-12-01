@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import LoadingSpinner from "@/components/loading/LoadingSpinner";
 import { supabaseBrowserClient } from "@/lib/supabaseClient";
@@ -8,7 +8,7 @@ import { supabaseBrowserClient } from "@/lib/supabaseClient";
 const POLL_INTERVAL = 3000; // 3 seconds
 const MAX_WAIT_TIME = 180000; // 3 minutes
 
-export default function LoadingPage() {
+function LoadingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const userId = searchParams.get("user_id");
@@ -133,5 +133,17 @@ export default function LoadingPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoadingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
+        <LoadingSpinner />
+      </div>
+    }>
+      <LoadingPageContent />
+    </Suspense>
   );
 }
