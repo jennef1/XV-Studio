@@ -23,7 +23,7 @@ const adminClient =
   });
 
 if (process.env.NODE_ENV !== 'production') {
-  globalForAdminClient.__supabaseAdminClient = adminClient;
+  globalForAdminClient.__supabaseAdminClient = adminClient as any;
 }
 
 export const supabaseAdminClient = adminClient;

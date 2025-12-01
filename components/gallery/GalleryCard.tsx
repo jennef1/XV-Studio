@@ -20,7 +20,7 @@ export default function GalleryCard({ project, onClick, onToggleFavorite }: Gall
   return (
     <div
       className="group relative bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer"
-      onDoubleClick={onClick}
+      onClick={onClick}
     >
       {/* Image */}
       <div className="relative aspect-square w-full bg-gray-100 dark:bg-gray-800">

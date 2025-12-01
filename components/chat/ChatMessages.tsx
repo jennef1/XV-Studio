@@ -15,9 +15,11 @@ interface Message {
 
 interface ChatMessagesProps {
   messages: Message[];
+  onImageSelection?: (selectedUrls: string[]) => void;
+  onProductSelection?: (productId: string) => void;
 }
 
-export default function ChatMessages({ messages }: ChatMessagesProps) {
+export default function ChatMessages({ messages, onImageSelection, onProductSelection }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -67,6 +69,8 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
                 timestamp={message.timestamp}
                 index={index}
                 imageUrls={message.imageUrls}
+                onImageSelection={onImageSelection}
+                onProductSelection={onProductSelection}
               />
             );
           })}

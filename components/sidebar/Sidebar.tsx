@@ -15,7 +15,7 @@ type Selection =
 interface SidebarProps {
   selectedProductId: number | null;
   onProductSelect: (id: number | null) => void;
-  onGallerySelect?: (id: number) => void;
+  onGallerySelect: (id: number) => void;
 }
 
 export default function Sidebar({ selectedProductId, onProductSelect, onGallerySelect }: SidebarProps) {
@@ -28,10 +28,8 @@ export default function Sidebar({ selectedProductId, onProductSelect, onGalleryS
 
   const handleChatSelect = (id: number) => {
     setSelection({ category: "chat", id });
-    // If gallery item is clicked, notify parent
-    if (id === 1) {
-      onGallerySelect?.(id);
-    }
+    // All gallery items notify parent with their ID
+    onGallerySelect(id);
   };
 
   return (

@@ -1,48 +1,40 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
-import LoginModal from "./LoginModal";
+interface LandingHeaderProps {
+  onOpenLogin: () => void;
+}
 
-export default function LandingHeader() {
-  const router = useRouter();
-  const [showLoginModal, setShowLoginModal] = useState(false);
-
+export default function LandingHeader({ onOpenLogin }: LandingHeaderProps) {
   return (
-    <>
-      <header className="fixed top-0 left-0 right-0 z-50 pointer-events-none">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <div className="pointer-events-auto">
-              <Image
-                src="/images/XV Logo.png"
-                alt="XV Studio Logo"
-                width={180}
-                height={60}
-                className="h-14 w-auto"
-                priority
-              />
-            </div>
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo Text Only */}
+          <div className="flex items-center">
+            <span className="text-xl font-bold text-gray-900">
+              XV STUDIO
+            </span>
+          </div>
 
-            {/* Login / Sign Up Button */}
+          {/* Login Button with Gradient Border */}
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full blur-sm opacity-75"></div>
             <button
-              onClick={() => setShowLoginModal(true)}
-              className="pointer-events-auto px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+              onClick={onOpenLogin}
+              className="relative px-6 py-2 text-sm font-semibold text-gray-900 hover:text-white transition-all duration-200 bg-white hover:bg-gradient-to-r hover:from-purple-500 hover:to-pink-500 rounded-full"
+              style={{
+                border: '2px solid transparent',
+                backgroundImage: 'linear-gradient(white, white), linear-gradient(to right, rgb(168, 85, 247), rgb(236, 72, 153))',
+                backgroundOrigin: 'border-box',
+                backgroundClip: 'padding-box, border-box',
+              }}
             >
-              Login / Sign Up
+              Login
             </button>
           </div>
         </div>
-      </header>
-
-      {/* Login Modal */}
-      <LoginModal
-        isOpen={showLoginModal}
-        onClose={() => setShowLoginModal(false)}
-      />
-    </>
+      </div>
+    </header>
   );
 }
 

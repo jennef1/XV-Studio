@@ -5,7 +5,7 @@ import { ThemeProvider } from "@/lib/theme-provider";
 import DevAuthLoader from "@/components/DevAuthLoader";
 
 const inter = Inter({ subsets: ["latin"] });
-export const quicksand = Quicksand({
+const quicksand = Quicksand({
   weight: ["300", "400", "500", "600", "700"],
   subsets: ["latin"],
   variable: "--font-quicksand"

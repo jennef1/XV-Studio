@@ -30,6 +30,7 @@ Required environment variables (see `.env.example`):
 - `OPENAI_API_KEY` - OpenAI API key for the assistant
 - `N8N_WEBHOOK_URL_WEEKLY_SOCIAL_MEDIA_PACKAGE` - n8n webhook endpoint for social media packages
 - `NEXT_PUBLIC_N8N_WEBHOOK_URL_BUSINESS_WEBSITE_DNA` - n8n webhook for business website DNA
+- `N8N_WEBHOOK_URL_PRODUCT_DATA` - n8n webhook for product data scraping and analysis
 
 ## Architecture
 
@@ -51,6 +52,9 @@ Required environment variables (see `.env.example`):
   - `components/sidebar/` - Project selection and navigation
   - `components/landing/` - Landing page sections
   - `components/preview/` - Content preview panel
+  - `components/business/` - Business profile management
+  - `components/products/` - Product/services catalog
+  - `components/gallery/` - Saved projects gallery
 - `lib/` - Utility modules
   - `lib/supabaseClient.ts` - Browser-side Supabase client (uses anon key)
   - `lib/supabaseAdmin.ts` - Server-side Supabase client (uses service key)

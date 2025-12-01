@@ -2,6 +2,11 @@
 
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
+import { useState } from "react";
+import ProductSelectionCards from "./ProductSelectionCards";
+import { Database } from "@/types/database";
+
+type BusinessProduct = Database["public"]["Tables"]["business_products"]["Row"];
 
 interface MessageBubbleProps {
   message: string;
@@ -9,6 +14,8 @@ interface MessageBubbleProps {
   timestamp?: string;
   index?: number;
   imageUrls?: string[];
+  onImageSelection?: (selectedUrls: string[]) => void;
+  onProductSelection?: (productId: string) => void;
 }
 
 export default function MessageBubble({
@@ -17,7 +24,126 @@ export default function MessageBubble({
   timestamp,
   index = 0,
   imageUrls,
+  onImageSelection,
+  onProductSelection,
 }: MessageBubbleProps) {
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+
+  // Parse product selection data from message content
+  const parseProductSelectionFromMessage = (msg: string): { cleanMessage: string; products: BusinessProduct[] | null } => {
+    const startMarker = '[PRODUCT_SELECTION:';
+    const startIndex = msg.indexOf(startMarker);
+
+    if (startIndex === -1) {
+      return { cleanMessage: msg, products: null };
+    }
+
+    // Find the matching closing bracket by counting brackets
+    let bracketCount = 0;
+    let endIndex = -1;
+    let i = startIndex + startMarker.length;
+
+    for (; i < msg.length; i++) {
+      if (msg[i] === '[') {
+        bracketCount++;
+      } else if (msg[i] === ']') {
+        if (bracketCount === 0) {
+          // This is the closing bracket for PRODUCT_SELECTION
+          endIndex = i;
+          break;
+        }
+        bracketCount--;
+      }
+    }
+
+    if (endIndex === -1) {
+      console.error("Could not find closing bracket for PRODUCT_SELECTION");
+      return { cleanMessage: msg, products: null };
+    }
+
+    // Extract the JSON string
+    const jsonStr = msg.substring(startIndex + startMarker.length, endIndex);
+
+    let products: BusinessProduct[] | null = null;
+    try {
+      products = JSON.parse(jsonStr);
+    } catch (error) {
+      console.error("Error parsing product selection:", error, "JSON:", jsonStr);
+      return { cleanMessage: msg, products: null };
+    }
+
+    // Remove the entire marker from the message
+    const fullMarker = msg.substring(startIndex, endIndex + 1);
+    const cleanMsg = msg.replace(fullMarker, '').trim();
+
+    return { cleanMessage: cleanMsg, products };
+  };
+
+  // Parse images from message content if they're embedded in the text
+  const parseImagesFromMessage = (msg: string): { cleanMessage: string; parsedImageUrls: string[] } => {
+    const imagePattern = /\[Hochgeladene Bilder:\s*([^\]]+)\]/g;
+    const productImagePattern = /\[Produktbilder:\s*([^\]]+)\]/g;
+    let parsedUrls: string[] = [];
+    let cleanMsg = msg;
+
+    // Parse [Hochgeladene Bilder: ...]
+    const matches = msg.matchAll(imagePattern);
+    for (const match of matches) {
+      const urlString = match[1];
+      const urls = urlString.split(',').map(url => url.trim()).filter(url => url.length > 0);
+      parsedUrls.push(...urls);
+      // Remove the image marker from the message
+      cleanMsg = cleanMsg.replace(match[0], '').trim();
+    }
+
+    // Parse and REMOVE [Produktbilder: ...] from display (we don't need to show it)
+    const productMatches = msg.matchAll(productImagePattern);
+    for (const match of productMatches) {
+      // Just remove it from the message, don't parse the URLs
+      cleanMsg = cleanMsg.replace(match[0], '').trim();
+    }
+
+    return { cleanMessage: cleanMsg, parsedImageUrls: parsedUrls };
+  };
+
+  // Parse both products and images from message
+  const { cleanMessage: msgAfterProducts, products } = parseProductSelectionFromMessage(message);
+  const { cleanMessage, parsedImageUrls } = parseImagesFromMessage(msgAfterProducts);
+  const allImageUrls = [...(imageUrls || []), ...parsedImageUrls];
+
+  // Handle product selection
+  const handleProductSelect = (product: BusinessProduct) => {
+    if (onProductSelection) {
+      onProductSelection(product.id);
+    }
+  };
+
+  // Handle image selection toggle
+  const toggleImageSelection = (url: string) => {
+    setSelectedImages(prev => {
+      const isSelected = prev.includes(url);
+      let newSelection: string[];
+
+      if (isSelected) {
+        // Deselect
+        newSelection = prev.filter(u => u !== url);
+      } else {
+        // Select (max 5)
+        if (prev.length >= 5) {
+          return prev; // Don't add more than 5
+        }
+        newSelection = [...prev, url];
+      }
+
+      // Notify parent component
+      if (onImageSelection) {
+        onImageSelection(newSelection);
+      }
+
+      return newSelection;
+    });
+  };
+
   const bubbleVariants = {
     hidden: {
       opacity: 0,
@@ -30,7 +156,7 @@ export default function MessageBubble({
       scale: 1,
       transition: {
         duration: 0.4,
-        ease: [0.23, 1, 0.32, 1], // Custom easing for smooth feel
+        ease: [0.23, 1, 0.32, 1] as any, // Custom easing for smooth feel
         delay: index * 0.05, // Stagger for initial load
       }
     }
@@ -69,34 +195,8 @@ export default function MessageBubble({
               : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
           }`}
         >
-          {/* Display attached images */}
-          {imageUrls && imageUrls.length > 0 && (
-            <div className={`flex gap-2 mb-2 ${imageUrls.length === 1 ? "flex-col" : "flex-wrap"}`}>
-              {imageUrls.map((url, idx) => (
-                <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.1 * idx }}
-                  className="relative rounded-lg overflow-hidden"
-                >
-                  <img
-                    src={url}
-                    alt={`Attachment ${idx + 1}`}
-                    className={`object-cover rounded-lg ${
-                      imageUrls.length === 1
-                        ? "max-w-full max-h-64"
-                        : "w-24 h-24"
-                    }`}
-                    onClick={() => window.open(url, "_blank")}
-                    style={{ cursor: "pointer" }}
-                  />
-                </motion.div>
-              ))}
-            </div>
-          )}
-
-          {message && (
+          {/* Display message content first */}
+          {cleanMessage && (
             <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none">
               <ReactMarkdown
                 components={{
@@ -107,10 +207,68 @@ export default function MessageBubble({
                   li: ({ children }) => <li className="ml-2">{children}</li>,
                 }}
               >
-                {message}
+                {cleanMessage}
               </ReactMarkdown>
             </div>
           )}
+
+          {/* Display product selection cards at the bottom */}
+          {products && products.length > 0 && !isUser && (
+            <div className="mt-3">
+              <ProductSelectionCards
+                products={products}
+                onProductSelect={handleProductSelect}
+              />
+            </div>
+          )}
+
+          {/* Display attached images */}
+          {allImageUrls && allImageUrls.length > 0 && (
+            <div>
+              <div className={`flex gap-2 mb-2 ${allImageUrls.length === 1 ? "flex-col" : "flex-wrap"}`}>
+                {allImageUrls.map((url, idx) => {
+                  const isSelected = selectedImages.includes(url);
+                  return (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.1 * idx }}
+                      className="relative rounded-lg overflow-hidden cursor-pointer"
+                      onClick={() => toggleImageSelection(url)}
+                    >
+                      <img
+                        src={url}
+                        alt={`Attachment ${idx + 1}`}
+                        className={`object-cover rounded-lg ${
+                          allImageUrls.length === 1
+                            ? "max-w-full max-h-64"
+                            : "w-24 h-24"
+                        } ${isSelected ? "ring-4 ring-purple-500" : ""}`}
+                      />
+                      {/* Selection indicator */}
+                      {isSelected && (
+                        <div className="absolute top-1 right-1 bg-purple-500 rounded-full w-6 h-6 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+              {/* Selection info */}
+              {onImageSelection && allImageUrls.length > 0 && (
+                <p className="text-xs text-gray-400 mt-2">
+                  {selectedImages.length > 0
+                    ? `${selectedImages.length} von max. 5 Bildern ausgewählt`
+                    : "Klicke auf Bilder um sie auszuwählen (max. 5)"}
+                </p>
+              )}
+            </div>
+          )}
+
           {timestamp && (
             <motion.p
               className={`text-xs mt-1 ${

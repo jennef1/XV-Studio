@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { supabaseBrowserClient } from "@/lib/supabaseClient";
+import Image from "next/image";
 
 interface UserProfile {
   name: string;
@@ -47,19 +47,14 @@ export default function SidebarHeader() {
   }, []);
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-center gap-2">
-        <div className="relative w-24 h-8">
-          <Image
-            src="/images/XV Logo.png"
-            alt="XV Studio Logo"
-            fill
-            className="object-contain object-left"
-            priority
-          />
-        </div>
+    <div className="flex flex-col p-4">
+      {/* Brand name */}
+      <div className="h-8 flex items-center mb-8">
+        <h1 className="text-2xl font-bold tracking-wider text-gray-900 dark:text-white" style={{ fontFamily: 'system-ui, -apple-system, sans-serif', letterSpacing: '0.1em' }}>
+          XV STUDIO
+        </h1>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 mb-4">
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium overflow-hidden">
           {user?.avatarUrl ? (
             <Image

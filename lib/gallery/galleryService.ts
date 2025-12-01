@@ -35,7 +35,7 @@ export async function saveProject(data: SaveProjectData): Promise<{ success: boo
       .from('saved_projects')
       .insert({
         user_id: user.id,
-        ...data,
+        ...data as any,
       })
       .select()
       .single();
@@ -46,7 +46,7 @@ export async function saveProject(data: SaveProjectData): Promise<{ success: boo
     }
 
     console.log("Project saved successfully:", project);
-    return { success: true, project };
+    return { success: true, project: project as any };
   } catch (error: any) {
     console.error("Error in saveProject:", error);
     return { success: false, error: error.message };
@@ -97,7 +97,7 @@ export async function fetchProjects(filters?: FilterOptions): Promise<{ success:
       return { success: false, error: error.message };
     }
 
-    return { success: true, projects: projects || [] };
+    return { success: true, projects: (projects as any) || [] };
   } catch (error: any) {
     console.error("Error in fetchProjects:", error);
     return { success: false, error: error.message };

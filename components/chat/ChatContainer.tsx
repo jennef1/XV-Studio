@@ -31,7 +31,9 @@ interface ConversationState {
     outputFormat?: string;
     hasReferenceImages?: boolean;
     imageUrls?: string[];
+    productImages?: string[];
   };
+  selectedVideoImages?: string[];
 }
 
 interface ChatContainerProps {
@@ -43,7 +45,7 @@ interface ChatContainerProps {
 const PRODUCT_CONFIGS: Record<number, { name: string; greeting: string }> = {
   0: {
     name: "Bilder",
-    greeting: "Hallo Fabian, ich helfe dir dabei, grossartige Bilder für dein Geschäft zu erstellen. Du hast folgende Möglichkeiten:\n\n- **Lasse der KI freien Lauf** und beschreibe was für ein Bild du erstellen möchtest\n- **Füge neben der Beschreibung Referenzbilder dazu** (bis zu drei Bilder). Beispielsweise um aus einem Produktbild ein lebhaftes Bild zu erstellen mit deinem Produkt im Mittelpunkt\n- **Kombiniere mehrere Bilder** zu einem neuen, kreativen Bild\n\nWie möchtest du beginnen?",
+    greeting: "Hallo! Ich helfe dir dabei, grossartige Bilder für dein Geschäft zu erstellen.\n\nDu hast drei Möglichkeiten:\n\n1. **Lasse der KI freien Lauf**: Beschreibe einfach, was für ein Bild du erstellen möchtest\n2. **Kombiniere mehrere Bilder zu einem**: Lade mehrere Bilder hoch und erstelle ein neues, kreatives Bild\n3. **Füge Referenzbilder oder Bilder deiner Produkte dazu**: Wähle ein Produkt aus deinem Katalog oder lade eigene Referenzbilder hoch\n\nWie möchtest du vorgehen?",
   },
   1: {
     name: "Social Media Paket",
@@ -51,7 +53,7 @@ const PRODUCT_CONFIGS: Record<number, { name: string; greeting: string }> = {
   },
   2: {
     name: "Produkt / Service Video",
-    greeting: "Hallo! Ich helfe dir dabei, ein professionelles Produktvideo zu erstellen.\n\nDu hast zwei Möglichkeiten:\n\n1. **Produktseiten-URL analysieren**: Gib mir die URL deiner Produktseite und ich analysiere sie automatisch, um Videoideen zu generieren.\n\n2. **Manuell beschreiben**: Beschreibe dein Produkt selbst und lade Bilder hoch.\n\nWie möchtest du vorgehen?",
+    greeting: "Hallo! Ich helfe dir dabei, ein professionelles Produktvideo zu erstellen.\n\nDu hast drei Möglichkeiten:\n\n1. **Produktseiten-URL analysieren**: Gib mir die URL deiner Produktseite und ich analysiere sie automatisch, um Videoideen zu generieren.\n2. **Manuell beschreiben**: Beschreibe dein Produkt selbst und lade Bilder hoch.\n3. **Video für bestehendes Produkt erstellen**: Wähle ein bereits gespeichertes Produkt aus deinem Katalog.\n\nWie möchtest du vorgehen?",
   },
 };
 
@@ -68,6 +70,7 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
     currentImageUrl: null,
     originalImageSettings: {},
     lastGenerationParams: undefined,
+    selectedVideoImages: [],
   });
 
   // Transient UI state (not persisted)
@@ -98,23 +101,30 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         // Initialize new conversation
         const config = PRODUCT_CONFIGS[selectedProductId];
         if (config) {
-          const newState: ConversationState = {
-            messages: [
-              {
-                id: Date.now().toString(),
-                role: "assistant",
-                content: config.greeting,
-                timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-              },
-            ],
-            isComplete: false,
-            isRefining: false,
-            currentImageUrl: null,
-            originalImageSettings: {},
-            lastGenerationParams: undefined,
-          };
-          setCurrentState(newState);
-          onPreviewUpdate?.(null);
+          // For Product Video and Bilder, fetch and embed products in greeting
+          if (selectedProductId === 2 || selectedProductId === 0) {
+            initializeWithProducts(config.greeting, selectedProductId);
+          } else {
+            // Other products - just show greeting
+            const newState: ConversationState = {
+              messages: [
+                {
+                  id: Date.now().toString(),
+                  role: "assistant",
+                  content: config.greeting,
+                  timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                },
+              ],
+              isComplete: false,
+              isRefining: false,
+              currentImageUrl: null,
+              originalImageSettings: {},
+              lastGenerationParams: undefined,
+              selectedVideoImages: [],
+            };
+            setCurrentState(newState);
+            onPreviewUpdate?.(null);
+          }
         }
       }
       initializedProductRef.current = selectedProductId;
@@ -132,6 +142,7 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         currentImageUrl: null,
         originalImageSettings: {},
         lastGenerationParams: undefined,
+        selectedVideoImages: [],
       });
       onPreviewUpdate?.(null);
       initializedProductRef.current = null;
@@ -145,6 +156,95 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
       conversationHistoryRef.current.set(selectedProductId, currentState);
     }
   }, [currentState, selectedProductId]);
+
+  // Initialize with embedded products in greeting (for Bilder and Product Video)
+  const initializeWithProducts = async (baseGreeting: string, productId: number) => {
+    try {
+      // Get user_id from auth
+      const { data: userData } = await supabaseBrowserClient.auth.getUser();
+
+      let greetingContent = baseGreeting;
+
+      if (userData?.user) {
+        let products;
+
+        if (productId === 2) {
+          // For Product Video: only products with video concepts
+          const { getUserBusinessProducts } = await import("@/lib/database");
+          products = await getUserBusinessProducts(userData.user.id);
+        } else if (productId === 0) {
+          // For Bilder: ALL products with images
+          const { data, error } = await supabaseBrowserClient
+            .from("business_products")
+            .select("*")
+            .eq("user_id", userData.user.id)
+            .not("product_images", "is", null)
+            .order("created_at", { ascending: false });
+
+          if (!error && data) {
+            products = data;
+          }
+        }
+
+        // If products exist, embed them in the greeting
+        if (products && products.length > 0) {
+          const productData = products.map(p => ({
+            id: p.id,
+            product_name: p.product_name,
+            product_description: p.product_description,
+            product_images: p.product_images
+          }));
+
+          greetingContent = `${baseGreeting}\n\n[PRODUCT_SELECTION:${JSON.stringify(productData)}]`;
+        }
+      }
+
+      // Create new state with greeting (with or without products)
+      const newState: ConversationState = {
+        messages: [
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: greetingContent,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+        isComplete: false,
+        isRefining: false,
+        currentImageUrl: null,
+        originalImageSettings: {},
+        lastGenerationParams: undefined,
+        selectedVideoImages: [],
+      };
+
+      setCurrentState(newState);
+      onPreviewUpdate?.(null);
+
+    } catch (error) {
+      console.error("Error initializing with products:", error);
+
+      // Fallback: show greeting without products
+      const newState: ConversationState = {
+        messages: [
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: baseGreeting,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+        isComplete: false,
+        isRefining: false,
+        currentImageUrl: null,
+        originalImageSettings: {},
+        lastGenerationParams: undefined,
+        selectedVideoImages: [],
+      };
+
+      setCurrentState(newState);
+      onPreviewUpdate?.(null);
+    }
+  };
 
   const handleSendMessage = async (content: string, images?: File[]) => {
     if ((!content.trim() && (!images || images.length === 0)) || isLoading) return;
@@ -332,12 +432,19 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
     }));
 
     try {
-      const conversation = [...currentState.messages, userMessage].map((msg) => {
+      const conversation = [...currentState.messages, userMessage].map((msg, index) => {
         // Include image URLs in the message content for the AI to know about them
         let messageContent = msg.content;
         if (msg.imageUrls && msg.imageUrls.length > 0) {
           messageContent += `\n\n[Hochgeladene Bilder: ${msg.imageUrls.join(', ')}]`;
         }
+
+        // For Product Video: If this is the LAST user message (concept selection) and we have product images, inject them
+        const isLastUserMessage = index === [...currentState.messages, userMessage].length - 1 && msg.role === 'user';
+        if (selectedProductId === 2 && isLastUserMessage && currentState.lastGenerationParams?.productImages && currentState.lastGenerationParams.productImages.length > 0) {
+          messageContent += `\n\n[Produktbilder: ${currentState.lastGenerationParams.productImages.join(', ')}]`;
+        }
+
         return {
           role: msg.role,
           content: messageContent,
@@ -553,16 +660,16 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
 
       // Display video ideas to user
       const videoIdeasText = videoIdeas.map((idea: any, index: number) =>
-        `**${index + 1}. ${idea.title || 'Video Konzept'}**\n${idea.prompt || idea.description || ''}\n`
+        `**${index + 1}. ${idea.title || 'Video Konzept'}**\n${idea.video_prompt || idea.prompt || idea.description || ''}\n`
       ).join("\n");
 
       // Extract product images
       const productImages = product.product_images;
       let imageUrls: string[] = [];
       if (Array.isArray(productImages)) {
-        imageUrls = productImages;
+        imageUrls = productImages.filter((img): img is string => typeof img === 'string');
       } else if (productImages && typeof productImages === 'object') {
-        imageUrls = Object.values(productImages).filter(val => typeof val === 'string') as string[];
+        imageUrls = Object.values(productImages).filter((val): val is string => typeof val === 'string');
       }
 
       setCurrentState((prev) => ({
@@ -578,6 +685,7 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         ],
         // Store product ID and video ideas in state for later use
         lastGenerationParams: {
+          prompt: '', // Will be set when user selects a video idea
           productId: product.id,
           videoIdeas,
           productImages: imageUrls,
@@ -595,6 +703,158 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
             role: "assistant",
             content: `Fehler bei der Produkt-Analyse: ${error.message}`,
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Helper function to display product images for Bilder flow
+  const displayProductImagesForBilder = async (productId: string) => {
+    try {
+      setIsLoading(true);
+
+      // Fetch the product
+      const { data: product, error } = await supabaseBrowserClient
+        .from("business_products")
+        .select("*")
+        .eq("id", productId)
+        .single();
+
+      if (error || !product) {
+        throw new Error("Produkt nicht gefunden");
+      }
+
+      // Extract product images
+      let imageUrls: string[] = [];
+      const productImages = product.product_images;
+      if (Array.isArray(productImages)) {
+        imageUrls = productImages.filter((img): img is string => typeof img === 'string');
+      } else if (productImages && typeof productImages === 'object') {
+        imageUrls = Object.values(productImages).filter((val): val is string => typeof val === 'string');
+      }
+
+      if (imageUrls.length === 0) {
+        throw new Error("Keine Bilder für dieses Produkt gefunden");
+      }
+
+      // Display product images for selection
+      const imageUrlsText = `[Hochgeladene Bilder: ${imageUrls.join(", ")}]`;
+
+      setCurrentState((prev) => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `Perfekt! Hier sind die Bilder von **${product.product_name}**:\n\n${imageUrlsText}\n\nKlicke auf die Bilder, die du verwenden möchtest (bis zu 5 Bilder).\n\nBeschreibe dann, was für ein Bild du erstellen möchtest. Zum Beispiel: "Erstelle ein lebhaftes Social-Media-Bild mit meinem Produkt im Mittelpunkt auf einem modernen Hintergrund."`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+
+    } catch (error: any) {
+      console.error("Error displaying product images:", error);
+      setCurrentState((prev) => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "Es gab einen Fehler beim Laden der Produktbilder. Bitte versuche es erneut.",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            status: "error" as const,
+          },
+        ],
+      }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Helper function to display video concepts for selected product
+  const displayVideoConceptsForProduct = async (productId: string) => {
+    try {
+      setIsLoading(true);
+
+      // Fetch the product with video concepts
+      const { getProductVideoIdeas } = await import("@/lib/database");
+      const product = await getProductVideoIdeas(productId);
+
+      if (!product) {
+        throw new Error("Produkt nicht gefunden");
+      }
+
+      // Extract video concepts
+      const videoIdeas = [
+        product.video_concept_1,
+        product.video_concept_2,
+        product.video_concept_3,
+      ].filter(Boolean);
+
+      if (videoIdeas.length === 0) {
+        throw new Error("Keine Videokonzepte für dieses Produkt gefunden");
+      }
+
+      // Extract product images
+      let imageUrls: string[] = [];
+      const productImages = product.product_images;
+      if (Array.isArray(productImages)) {
+        imageUrls = productImages.filter((img): img is string => typeof img === 'string');
+      } else if (productImages && typeof productImages === 'object') {
+        imageUrls = Object.values(productImages).filter((val): val is string => typeof val === 'string');
+      }
+
+      // Store in state for later use
+      setCurrentState((prev) => ({
+        ...prev,
+        lastGenerationParams: {
+          prompt: '', // Will be set when user selects a video idea
+          productId: product.id,
+          videoIdeas,
+          productImages: imageUrls,
+        },
+      }));
+
+      // Display video concepts
+      const videoIdeasText = videoIdeas.map((idea: any, index: number) =>
+        `**${index + 1}. ${idea.title || 'Video Konzept'}**\n${idea.video_prompt || idea.prompt || idea.description || ''}\n`
+      ).join("\n");
+
+      // Show product images with special format that MessageBubble will detect
+      const imageUrlsText = imageUrls.length > 0
+        ? `\n\n[Produktbilder: ${imageUrls.join(", ")}]`
+        : "";
+
+      setCurrentState((prev) => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `Hier sind die 3 Videoideen für **${product.product_name}**:\n\n${videoIdeasText}\nWelche Idee möchtest du verwenden? Antworte einfach mit der Nummer (1, 2 oder 3).${imageUrlsText}`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+
+    } catch (error: any) {
+      console.error("Error displaying video concepts:", error);
+      setCurrentState((prev) => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "Es gab einen Fehler beim Laden der Videokonzepte. Bitte versuche es erneut.",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            status: "error" as const,
           },
         ],
       }));
@@ -634,18 +894,25 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
       }
 
       // Call video generation webhook
-      const response = await fetch("/api/webhook/video-generation", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          user_id: userData.user.id,
-          business_id: business.id,
-          product_id: payload.product_id || null,
-          prompt: payload.prompt,
-          images: payload.images || [],
-        }),
+      // Use selected images from state, or fall back to payload images
+      const imagesToUse = currentState.selectedVideoImages && currentState.selectedVideoImages.length > 0
+        ? currentState.selectedVideoImages
+        : (payload.images || []);
+
+      // Get product_id from state (stored during URL analysis)
+      const productId = (currentState.lastGenerationParams as any)?.productId || payload.product_id || null;
+
+      // Build query parameters for GET request
+      const params = new URLSearchParams({
+        user_id: userData.user.id,
+        business_id: business.id,
+        product_id: productId || '',
+        prompt: payload.prompt,
+        images: JSON.stringify(imagesToUse),
+      });
+
+      const response = await fetch(`/api/webhook/video-generation?${params.toString()}`, {
+        method: "GET",
       });
 
       if (!response.ok) {
@@ -658,18 +925,43 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
       // Show video in preview
       if (result.videoUrl) {
         onPreviewUpdate?.(result.videoUrl);
+
+        // Save video to gallery
+        try {
+          const { saveProject } = await import("@/lib/gallery/galleryService");
+          const saveResult = await saveProject({
+            product_type: 2, // Product/Service Video
+            image_url: result.videoUrl,
+            project_name: `Product Video - ${new Date().toLocaleDateString()}`,
+            generation_params: {
+              prompt: payload.prompt,
+              product_id: productId,
+              images_count: imagesToUse.length,
+            } as any,
+          });
+
+          if (saveResult.success) {
+            console.log("Video saved to gallery successfully");
+          } else {
+            console.error("Failed to save video:", saveResult.error);
+          }
+        } catch (saveError) {
+          console.error("Failed to save video to gallery:", saveError);
+          // Don't fail the whole process if saving fails
+        }
       }
 
       // Mark conversation as complete
       setCurrentState((prev) => ({
         ...prev,
         isComplete: true,
+        currentImageUrl: result.videoUrl,
         messages: [
           ...prev.messages,
           {
             id: Date.now().toString(),
             role: "assistant",
-            content: "Dein Video wurde erfolgreich erstellt! Du kannst es jetzt in der Vorschau sehen.",
+            content: "Dein Video wurde erfolgreich erstellt! Du kannst es jetzt in der Vorschau sehen und findest es auch in 'Meine Gespeicherten Projekte'.",
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           },
         ],
@@ -848,9 +1140,32 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
     }
   };
 
+  // Handle image selection for Product Video flow
+  const handleImageSelection = (selectedUrls: string[]) => {
+    setCurrentState(prev => ({
+      ...prev,
+      selectedVideoImages: selectedUrls,
+    }));
+  };
+
+  const handleProductSelection = async (productId: string) => {
+    // Route to appropriate handler based on selected product type
+    if (selectedProductId === 0) {
+      // Bilder flow - show product images for selection
+      await displayProductImagesForBilder(productId);
+    } else if (selectedProductId === 2) {
+      // Product Video flow - show video concepts
+      await displayVideoConceptsForProduct(productId);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900">
-      <ChatMessages messages={currentState.messages} />
+      <ChatMessages
+        messages={currentState.messages}
+        onImageSelection={selectedProductId === 0 || selectedProductId === 2 ? handleImageSelection : undefined}
+        onProductSelection={selectedProductId === 0 || selectedProductId === 2 ? handleProductSelection : undefined}
+      />
       <ChatInput onSendMessage={handleSendMessage} disabled={isLoading || (currentState.isComplete && !currentState.isRefining)} />
     </div>
   );

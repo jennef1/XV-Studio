@@ -1,50 +1,66 @@
 "use client";
 
-import Image from "next/image";
+interface HeroSectionProps {
+  onOpenLogin: () => void;
+}
 
-export default function HeroSection() {
+export default function HeroSection({ onOpenLogin }: HeroSectionProps) {
   return (
-    <section className="relative h-screen w-full overflow-hidden">
-      {/* Background image */}
-      <div className="absolute inset-0 w-full h-full">
-        <Image
-          src="/images/backgroundHeroSection.jpeg"
-          alt="Hero background"
-          fill
-          className="object-cover"
-          priority
-          quality={100}
-        />
-      </div>
+    <section className="relative min-h-screen w-full bg-white flex items-center justify-center px-6 py-20">
+      <div className="max-w-4xl mx-auto text-center">
+        {/* Badge */}
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 mb-8">
+          <span className="text-sm text-blue-600 font-medium">KI für</span>
+          <span className="text-sm font-medium text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600">
+            Marketing
+          </span>
+        </div>
 
-      {/* Overlay gradient for better text readability */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60"></div>
+        {/* Main Headline */}
+        <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight tracking-tight">
+          <div className="text-gray-900">KI-Marketing für dein KMU</div>
+          <div className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600">
+            Geführt, schnell & kostengünstig.
+          </div>
+        </h1>
 
-      {/* Content overlay */}
-      <div className="absolute inset-0 flex items-center z-10">
-        <div className="w-full pl-12 sm:pl-16 lg:pl-24">
-          <div className="max-w-4xl">
-            {/* Title */}
-            <h1 className="text-4xl md:text-5xl font-medium text-white mb-6 leading-loose">
-              KI-Marketingmaterial für dein KMU
-              <br />
-              <span className="text-blue-400">
-                Geführt, schnell und kostengünstig
-              </span>
-            </h1>
+        {/* Subtitle */}
+        <p className="text-lg md:text-xl text-gray-600 mb-12 leading-relaxed max-w-3xl mx-auto">
+          Unsere KI begleitet dich Schritt für Schritt und erstellt automatisch professionelles Marketingmaterial – ohne technisches Wissen, hohe Kosten oder interne Experten. So gewinnst du Zeit und kannst dich auf das konzentrieren, was du am besten kannst!
+        </p>
 
-            {/* Subtitle */}
-            <p className="text-lg md:text-xl text-white/90 mb-8 leading-relaxed max-w-2xl">
-              Unsere KI begleitet dich Schritt für Schritt und erstellt automatisch professionelles Marketingmaterial – ohne technisches Wissen, hohe Kosten oder interne Experten. So gewinnst du Zeit und kannst dich auf das konzentrieren, was du am besten kannst!
-            </p>
+        {/* CTA Button */}
+        <button
+          onClick={onOpenLogin}
+          className="inline-flex items-center gap-2 px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl"
+        >
+          Let&apos;s start
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
+        </button>
 
-            {/* CTA Button */}
-            <a
-              href="/studio"
-              className="inline-block px-8 py-4 text-base md:text-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
-              Lass uns dein Marketing auf's nächste Level bringen
-            </a>
+        {/* Bottom Badges */}
+        <div className="mt-16 flex items-center justify-center gap-8 text-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+              <span className="text-white font-bold text-lg">XV</span>
+            </div>
+            <div className="text-left">
+              <div className="font-semibold text-gray-900">Für KMUs entwickelt</div>
+              <div className="text-gray-500">Schweizer Qualität</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+            </div>
+            <div className="text-left">
+              <div className="font-semibold text-gray-900">Powered by OpenAI</div>
+              <div className="text-gray-500">Führendes KI-Modell</div>
+            </div>
           </div>
         </div>
       </div>
