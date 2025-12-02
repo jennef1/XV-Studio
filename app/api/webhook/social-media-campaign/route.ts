@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     // Create a job record in the database
     const { data: jobData, error: jobError } = await supabaseAdminClient
-      .from("campaign_generation_jobs")
+      .from("campaign_generation_jobs" as any)
       .insert({
         user_id: userId,
         business_id: businessId,
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
       console.error("Error triggering n8n webhook:", error);
       // Update job status to failed
       supabaseAdminClient
-        .from("campaign_generation_jobs")
+        .from("campaign_generation_jobs" as any)
         .update({
           status: "failed",
           error_message: error.message,

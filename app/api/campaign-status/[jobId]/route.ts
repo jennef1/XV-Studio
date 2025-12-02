@@ -17,7 +17,7 @@ export async function GET(
 
     // Fetch job status
     const { data: job, error: fetchError } = await supabaseAdminClient
-      .from("campaign_generation_jobs")
+      .from("campaign_generation_jobs" as any)
       .select("id, status, result_images, error_message, created_at, updated_at")
       .eq("id", jobId)
       .single();
