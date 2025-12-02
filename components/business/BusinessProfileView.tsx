@@ -61,18 +61,28 @@ export default function BusinessProfileView() {
     if (!editedBusiness || !business) return;
 
     try {
+      // Ensure tone_of_voice is stored as array if it's a string
+      const toneOfVoice = Array.isArray(editedBusiness.tone_of_voice)
+        ? editedBusiness.tone_of_voice
+        : typeof editedBusiness.tone_of_voice === 'string'
+        ? editedBusiness.tone_of_voice.split(',').map(s => s.trim()).filter(s => s)
+        : editedBusiness.tone_of_voice;
+
       const { error } = await supabaseBrowserClient
         .from("businesses")
         .update({
           business_description: editedBusiness.business_description,
           brand_colors: editedBusiness.brand_colors,
           brand_values: editedBusiness.brand_values,
+          tone_of_voice: toneOfVoice,
+          target_audience: editedBusiness.target_audience,
+          unique_selling_points: editedBusiness.unique_selling_points,
         })
         .eq("id", business.id);
 
       if (error) throw error;
 
-      setBusiness(editedBusiness);
+      setBusiness({...editedBusiness, tone_of_voice: toneOfVoice});
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating business:", error);
@@ -284,31 +294,32 @@ export default function BusinessProfileView() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-950 p-8">
-      <div className="max-w-5xl mx-auto">
-        {/* Header Section */}
-        <div className="bg-gray-50 dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-800 p-8 mb-6">
-          <div className="flex items-start justify-between mb-6">
+    <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-950 p-8 h-full">
+      <div className="max-w-5xl mx-auto pb-20">
+        {/* Business Header */}
+        <div className="mb-8">
+          <div className="flex items-start justify-between">
             <div className="flex items-center gap-6">
               {business.logo_url ? (
-                <div className="w-20 h-20 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                <div className="w-24 h-24 rounded-3xl bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
                   <Image
                     src={business.logo_url}
                     alt={business.company_name}
-                    width={80}
-                    height={80}
+                    width={96}
+                    height={96}
                     className="object-contain"
+                    unoptimized
                   />
                 </div>
               ) : (
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-3xl font-bold">
+                <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-4xl font-bold">
                     {business.company_name.charAt(0).toUpperCase()}
                   </span>
                 </div>
               )}
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
                   {business.company_name}
                 </h1>
                 {business.tagline && (
@@ -332,7 +343,7 @@ export default function BusinessProfileView() {
             {!isEditing ? (
               <button
                 onClick={handleEdit}
-                className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-medium hover:opacity-90 transition-opacity flex items-center gap-2"
+                className="px-6 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl font-medium hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -340,16 +351,16 @@ export default function BusinessProfileView() {
                 Bearbeiten
               </button>
             ) : (
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <button
                   onClick={handleCancel}
-                  className="px-4 py-2 bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl font-medium hover:opacity-90 transition-opacity"
+                  className="px-8 py-3 bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white font-medium rounded-2xl hover:bg-gray-300 dark:hover:bg-gray-700 transition-all shadow-lg"
                 >
                   Abbrechen
                 </button>
                 <button
                   onClick={handleSave}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                  className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-2xl hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
                 >
                   Speichern
                 </button>
@@ -359,13 +370,18 @@ export default function BusinessProfileView() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Business Description */}
+          {/* Left Column - All Business Details */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Business Description Card */}
-            <div className="bg-gray-50 dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-                Geschäftsübersicht
-              </h2>
+            {/* Business Description */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Geschäftsübersicht
+                </label>
+                {!isEditing && (
+                  <span className="text-xs text-gray-500 font-medium">Read-only</span>
+                )}
+              </div>
               {isEditing ? (
                 <textarea
                   value={editedBusiness?.business_description || ""}
@@ -375,158 +391,299 @@ export default function BusinessProfileView() {
                       business_description: e.target.value,
                     })
                   }
-                  className="w-full h-40 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  rows={6}
+                  className="w-full px-4 py-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500 resize-none"
                   placeholder="Beschreibe dein Unternehmen..."
                 />
               ) : (
-                <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                <div className="w-full px-4 py-4 bg-gray-50 dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-800 rounded-3xl text-gray-700 dark:text-gray-300 leading-relaxed">
                   {business.business_description || "Keine Beschreibung vorhanden."}
-                </p>
+                </div>
               )}
             </div>
 
-            {/* Brand Values Card */}
-            <div className="bg-gray-50 dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                  Firmenwerte
-                </h2>
-                {isEditing && (
-                  <button
-                    onClick={addBrandValue}
-                    className="text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium"
-                  >
-                    + Hinzufügen
-                  </button>
+            {/* Brand Colors */}
+            <div className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl p-6">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Firmenfarben
+                </label>
+                {!isEditing && (
+                  <span className="text-xs text-gray-500 font-medium">Read-only</span>
                 )}
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-3">
                 {isEditing ? (
-                  editedBusiness?.brand_values.map((value, index) => (
-                    <div key={index} className="flex items-center gap-2">
+                  <>
+                    {editedBusiness?.brand_colors.map((color, index) => (
+                      <div key={index} className="relative group">
+                        <input
+                          type="color"
+                          value={color}
+                          onChange={(e) => updateColor(index, e.target.value)}
+                          className="w-16 h-16 rounded-3xl cursor-pointer border-4 border-white dark:border-gray-800 shadow-lg"
+                        />
+                        <button
+                          onClick={() => removeColor(index)}
+                          className="absolute -top-2 -right-2 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                    {editedBusiness && editedBusiness.brand_colors.length < 5 && (
+                      <button
+                        onClick={addColor}
+                        className="w-16 h-16 rounded-3xl border-2 border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center hover:border-purple-400 dark:hover:border-purple-500 transition-colors"
+                      >
+                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  business.brand_colors.map((color, index) => (
+                    <div
+                      key={index}
+                      className="w-16 h-16 rounded-3xl border-4 border-white dark:border-gray-800 shadow-lg"
+                      style={{ backgroundColor: color }}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Brand Values */}
+            <div className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl p-6">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Firmenwerte
+                </label>
+                {!isEditing && (
+                  <span className="text-xs text-gray-500 font-medium">Read-only</span>
+                )}
+              </div>
+              {isEditing ? (
+                <div className="space-y-2">
+                  {editedBusiness?.brand_values.map((value, index) => (
+                    <div key={index} className="flex gap-2">
                       <input
                         type="text"
                         value={value}
                         onChange={(e) => updateBrandValue(index, e.target.value)}
-                        className="px-3 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white"
-                        placeholder="Wert eingeben..."
+                        placeholder={`Wert ${index + 1}`}
+                        className="flex-1 px-4 py-3 bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-2xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500"
                       />
                       <button
                         onClick={() => removeBrandValue(index)}
-                        className="text-red-600 hover:text-red-700"
+                        className="px-3 text-red-500 hover:text-red-700"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
                     </div>
-                  ))
-                ) : (
-                  business.brand_values.map((value, index) => (
+                  ))}
+                  <button
+                    onClick={addBrandValue}
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                  >
+                    + Wert hinzufügen
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {business.brand_values.map((value, index) => (
                     <span
                       key={index}
-                      className="px-4 py-2 bg-gray-900 dark:bg-gray-800 text-white rounded-xl text-sm font-medium"
+                      className="px-4 py-2 bg-gray-900 dark:bg-gray-800 text-white rounded-2xl text-sm font-medium"
                     >
                       {value}
                     </span>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column - Brand Colors & Images */}
-          <div className="space-y-6">
-            {/* Brand Colors Card */}
-            <div className="bg-gray-50 dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                  Firmenfarben
-                </h2>
-                {isEditing && (
-                  <button
-                    onClick={addColor}
-                    className="text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium"
-                  >
-                    + Hinzufügen
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-3">
-                {isEditing ? (
-                  editedBusiness?.brand_colors.map((color, index) => (
-                    <div key={index} className="relative group">
-                      <input
-                        type="color"
-                        value={color}
-                        onChange={(e) => updateColor(index, e.target.value)}
-                        className="w-14 h-14 rounded-full cursor-pointer border-4 border-white dark:border-gray-800 shadow-lg"
-                      />
-                      <button
-                        onClick={() => removeColor(index)}
-                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  business.brand_colors.map((color, index) => (
-                    <div
-                      key={index}
-                      className="w-14 h-14 rounded-full border-4 border-white dark:border-gray-800 shadow-lg"
-                      style={{ backgroundColor: color }}
-                    />
-                  ))
-                )}
-                {isEditing && editedBusiness && editedBusiness.brand_colors.length < 5 && (
-                  <button
-                    onClick={addColor}
-                    className="w-14 h-14 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center hover:border-blue-600 dark:hover:border-blue-400 transition-colors"
-                  >
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Website Images Card */}
-            <div className="bg-gray-50 dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-800 p-6">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-                Bilder
-              </h2>
-              {business.website_images && business.website_images.length > 0 ? (
-                <div className="grid grid-cols-2 gap-3">
-                  {business.website_images.slice(0, 4).map((imageUrl, index) => (
-                    <div
-                      key={index}
-                      className="aspect-square rounded-xl bg-gray-200 dark:bg-gray-800 overflow-hidden"
-                    >
-                      <Image
-                        src={imageUrl}
-                        alt={`Website image ${index + 1}`}
-                        width={200}
-                        height={200}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
                   ))}
-                </div>
-              ) : (
-                <div className="aspect-square rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center">
-                  <div className="text-center text-gray-400">
-                    <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
-                    </svg>
-                    <p className="text-sm">Keine Bilder</p>
-                  </div>
                 </div>
               )}
             </div>
+
+            {/* Tone of Voice */}
+            <div className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl p-6">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Schreibstil
+                </label>
+                {!isEditing && (
+                  <span className="text-xs text-gray-500 font-medium">Read-only</span>
+                )}
+              </div>
+              {isEditing ? (
+                <textarea
+                  value={
+                    Array.isArray(editedBusiness?.tone_of_voice)
+                      ? editedBusiness.tone_of_voice.join(', ')
+                      : editedBusiness?.tone_of_voice || ""
+                  }
+                  onChange={(e) =>
+                    setEditedBusiness({
+                      ...editedBusiness!,
+                      tone_of_voice: e.target.value.split(',').map(s => s.trim()).filter(s => s),
+                    })
+                  }
+                  rows={3}
+                  className="w-full px-4 py-4 bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-2xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500 resize-none"
+                  placeholder="professionell, innovativ, leidenschaftlich (getrennt durch Kommas)"
+                />
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {(() => {
+                    try {
+                      const toneData = typeof business.tone_of_voice === 'string'
+                        ? JSON.parse(business.tone_of_voice)
+                        : business.tone_of_voice;
+                      return Array.isArray(toneData) && toneData.length > 0 ? (
+                        toneData.map((tone, index) => (
+                          <span
+                            key={index}
+                            className="px-4 py-2 bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 rounded-2xl text-sm font-medium"
+                          >
+                            {tone}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-gray-500 text-sm">Nicht definiert.</span>
+                      );
+                    } catch {
+                      return <span className="text-gray-500 text-sm">Nicht definiert.</span>;
+                    }
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Target Audience */}
+            <div className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl p-6">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Zielgruppe
+                </label>
+                {!isEditing && (
+                  <span className="text-xs text-gray-500 font-medium">Read-only</span>
+                )}
+              </div>
+              {isEditing ? (
+                <textarea
+                  value={editedBusiness?.target_audience || ""}
+                  onChange={(e) =>
+                    setEditedBusiness({
+                      ...editedBusiness!,
+                      target_audience: e.target.value,
+                    })
+                  }
+                  rows={3}
+                  className="w-full px-4 py-4 bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-2xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500 resize-none"
+                  placeholder="Luxus-Käufer, Rennsport-Fans, Sammler (getrennt durch Kommas)"
+                />
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {business.target_audience && typeof business.target_audience === 'string' ? (
+                    business.target_audience.split(',').filter(a => a.trim()).map((audience, index) => (
+                      <span
+                        key={index}
+                        className="px-4 py-2 bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 rounded-2xl text-sm font-medium"
+                      >
+                        {audience.trim()}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-gray-500 text-sm">Nicht definiert.</span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Unique Selling Points */}
+            <div className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl p-6">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Alleinstellungsmerkmale
+                </label>
+                {!isEditing && (
+                  <span className="text-xs text-gray-500 font-medium">Read-only</span>
+                )}
+              </div>
+              {isEditing ? (
+                <textarea
+                  value={
+                    Array.isArray(editedBusiness?.unique_selling_points)
+                      ? editedBusiness.unique_selling_points.join(', ')
+                      : typeof editedBusiness?.unique_selling_points === 'string'
+                      ? editedBusiness.unique_selling_points
+                      : ""
+                  }
+                  onChange={(e) =>
+                    setEditedBusiness({
+                      ...editedBusiness!,
+                      unique_selling_points: e.target.value.split(',').map(s => s.trim()).filter(s => s),
+                    })
+                  }
+                  rows={3}
+                  className="w-full px-4 py-4 bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-2xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500 resize-none"
+                  placeholder="Hochleistungs-Sportwagen, Starke Verbindung zur Geschichte (getrennt durch Kommas)"
+                />
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {Array.isArray(business.unique_selling_points) && business.unique_selling_points.length > 0 ? (
+                    business.unique_selling_points.map((point, index) => (
+                      <span
+                        key={index}
+                        className="px-4 py-2 bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 rounded-2xl text-sm font-medium"
+                      >
+                        {typeof point === 'string' ? point : JSON.stringify(point)}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-gray-500 text-sm">Nicht definiert.</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column - Images */}
+          <div className="space-y-6">
+            {/* Website Images */}
+            {business.website_images && business.website_images.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Bilder
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {business.website_images.slice(0, 4).map((imageUrl, index) => {
+                    // Sanitize URL by trimming whitespace and newlines
+                    const cleanUrl = imageUrl.trim().replace(/\n/g, '');
+                    return (
+                      <div
+                        key={index}
+                        className="aspect-square rounded-2xl bg-gray-200 dark:bg-gray-700 overflow-hidden"
+                      >
+                        <Image
+                          src={cleanUrl}
+                          alt={`Website image ${index + 1}`}
+                          width={200}
+                          height={200}
+                          className="w-full h-full object-cover"
+                          unoptimized
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
