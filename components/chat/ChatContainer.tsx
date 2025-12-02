@@ -1453,16 +1453,21 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
 
         attempts++;
 
-        const statusResponse = await fetch(`/api/campaign-status/${jobId}`);
+        // Add cache busting to prevent cached responses
+        const statusResponse = await fetch(`/api/campaign-status/${jobId}?t=${Date.now()}`, {
+          cache: 'no-store',
+        });
 
         if (!statusResponse.ok) {
           throw new Error("Fehler beim Abrufen des Job-Status");
         }
 
         const statusData = await statusResponse.json();
+        console.log(`[Polling ${attempts}] Full response:`, statusData);
+
         const { status, images, errorMessage } = statusData.job;
 
-        console.log(`Polling attempt ${attempts}: status = ${status}`);
+        console.log(`[Polling ${attempts}] Status: ${status}, Images: ${images?.length || 0}, Error: ${errorMessage || 'none'}`);
 
         if (status === "completed") {
           if (!images || images.length === 0) {
