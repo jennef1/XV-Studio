@@ -64,13 +64,21 @@ export default function PreviewPanel({ mediaUrl, productType, generationParams }
 
     setIsDownloading(true);
     try {
-      // Fetch the image
+      // Fetch the media file
       const response = await fetch(mediaUrl);
       const blob = await response.blob();
 
       // Extract filename from URL or create a default one
       const urlParts = mediaUrl.split('/');
-      const filename = urlParts[urlParts.length - 1] || `bild-${Date.now()}.jpg`;
+      let filename = urlParts[urlParts.length - 1];
+
+      // If no filename or it doesn't have extension, create a default based on type
+      if (!filename || !filename.includes('.')) {
+        const isVideo = productType === 2;
+        const extension = isVideo ? 'mp4' : 'jpg';
+        const prefix = isVideo ? 'video' : 'bild';
+        filename = `${prefix}-${Date.now()}.${extension}`;
+      }
 
       // Create download link
       const url = window.URL.createObjectURL(blob);
@@ -246,7 +254,10 @@ export default function PreviewPanel({ mediaUrl, productType, generationParams }
         </button>
       </div>
       <div className="flex-1 overflow-y-auto p-5 space-y-6">
-        <MediaPreview mediaUrl={mediaUrl || undefined} />
+        <MediaPreview
+          mediaUrl={mediaUrl || undefined}
+          mediaType={productType === 2 ? "video" : "image"}
+        />
         {mediaUrl && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {actionButtons.map((button) => (

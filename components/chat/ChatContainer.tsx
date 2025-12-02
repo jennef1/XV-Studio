@@ -34,6 +34,16 @@ interface ConversationState {
     productImages?: string[];
   };
   selectedVideoImages?: string[];
+  // Social Media Campaign state
+  campaignState?: {
+    type: "product" | "concept" | null;
+    selectedProduct: any | null;
+    selectedImage: string | null;
+    generatedImages: string[];
+    isGenerating: boolean;
+    isEditingImage: boolean;
+    editingImageIndex: number | null;
+  };
 }
 
 interface ChatContainerProps {
@@ -49,7 +59,7 @@ const PRODUCT_CONFIGS: Record<number, { name: string; greeting: string }> = {
   },
   1: {
     name: "Social Media Paket",
-    greeting: "Hey willkommen Fabian! Ich helfe dir dabei, die richtigen Social Media Posts für dich zu erstellen. Hast du bereits ein spezielles Thema im Kopf?",
+    greeting: "Hey! Ich helfe dir dabei, professionelle Social Media Kampagnen zu erstellen.\n\nWähle aus, wie du vorgehen möchtest:\n\n[CAMPAIGN_TYPE_SELECTOR]",
   },
   2: {
     name: "Produkt / Service Video",
@@ -71,6 +81,15 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
     originalImageSettings: {},
     lastGenerationParams: undefined,
     selectedVideoImages: [],
+    campaignState: {
+      type: null,
+      selectedProduct: null,
+      selectedImage: null,
+      generatedImages: [],
+      isGenerating: false,
+      isEditingImage: false,
+      editingImageIndex: null,
+    },
   });
 
   // Transient UI state (not persisted)
@@ -121,6 +140,15 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
               originalImageSettings: {},
               lastGenerationParams: undefined,
               selectedVideoImages: [],
+              campaignState: {
+                type: null,
+                selectedProduct: null,
+                selectedImage: null,
+                generatedImages: [],
+                isGenerating: false,
+                isEditingImage: false,
+                editingImageIndex: null,
+              },
             };
             setCurrentState(newState);
             onPreviewUpdate?.(null);
@@ -143,6 +171,15 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         originalImageSettings: {},
         lastGenerationParams: undefined,
         selectedVideoImages: [],
+        campaignState: {
+          type: null,
+          selectedProduct: null,
+          selectedImage: null,
+          generatedImages: [],
+          isGenerating: false,
+          isEditingImage: false,
+          editingImageIndex: null,
+        },
       });
       onPreviewUpdate?.(null);
       initializedProductRef.current = null;
@@ -215,6 +252,15 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         originalImageSettings: {},
         lastGenerationParams: undefined,
         selectedVideoImages: [],
+        campaignState: {
+          type: null,
+          selectedProduct: null,
+          selectedImage: null,
+          generatedImages: [],
+          isGenerating: false,
+          isEditingImage: false,
+          editingImageIndex: null,
+        },
       };
 
       setCurrentState(newState);
@@ -239,6 +285,15 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         originalImageSettings: {},
         lastGenerationParams: undefined,
         selectedVideoImages: [],
+        campaignState: {
+          type: null,
+          selectedProduct: null,
+          selectedImage: null,
+          generatedImages: [],
+          isGenerating: false,
+          isEditingImage: false,
+          editingImageIndex: null,
+        },
       };
 
       setCurrentState(newState);
@@ -248,6 +303,27 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
 
   const handleSendMessage = async (content: string, images?: File[]) => {
     if ((!content.trim() && (!images || images.length === 0)) || isLoading) return;
+
+    // Handle Social Media Campaign generation trigger
+    if (
+      selectedProductId === 1 &&
+      currentState.campaignState?.selectedImage &&
+      !currentState.campaignState?.generatedImages.length &&
+      content.trim()
+    ) {
+      const triggerWords = ["generieren", "los geht", "los gehts", "start", "erstellen"];
+      const isTrigger = triggerWords.some(word => content.trim().toLowerCase().includes(word));
+
+      if (isTrigger) {
+        // User wants to generate campaign
+        await handleCampaignGeneration(content.trim());
+        return;
+      } else {
+        // User is providing additional comments
+        await handleCampaignGeneration(content.trim());
+        return;
+      }
+    }
 
     // Handle refinement mode for Bilder
     if (currentState.isRefining && selectedProductId === 0 && currentState.currentImageUrl && content.trim()) {
@@ -1156,6 +1232,397 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
     } else if (selectedProductId === 2) {
       // Product Video flow - show video concepts
       await displayVideoConceptsForProduct(productId);
+    } else if (selectedProductId === 1) {
+      // Social Media Campaign flow - show product images for selection
+      await handleCampaignProductSelection(productId);
+    }
+  };
+
+  // ===== SOCIAL MEDIA CAMPAIGN HANDLERS =====
+
+  const handleCampaignTypeSelection = (type: "product" | "concept") => {
+    setCurrentState(prev => ({
+      ...prev,
+      campaignState: {
+        ...prev.campaignState!,
+        type,
+      },
+      messages: [
+        ...prev.messages,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: type === "product"
+            ? "Perfekt! Wähle das Produkt aus, für das du eine Kampagne erstellen möchtest:\n\n[CAMPAIGN_PRODUCT_SELECTOR]"
+            : "Super! Beschreibe deine Kampagnenidee und ich generiere passende Bilder für dich.",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ],
+    }));
+  };
+
+  const handleCampaignProductSelection = async (productId: string) => {
+    try {
+      setIsLoading(true);
+
+      // Fetch the product
+      const { data: product, error } = await supabaseBrowserClient
+        .from("business_products")
+        .select("*")
+        .eq("id", productId)
+        .single();
+
+      if (error || !product) {
+        throw new Error("Produkt nicht gefunden");
+      }
+
+      // Extract product images
+      let imageUrls: string[] = [];
+      const productImages = product.product_images;
+      if (Array.isArray(productImages)) {
+        imageUrls = productImages.filter((img): img is string => typeof img === 'string');
+      } else if (productImages && typeof productImages === 'object') {
+        imageUrls = Object.values(productImages).filter((val): val is string => typeof val === 'string');
+      }
+
+      if (imageUrls.length === 0) {
+        throw new Error("Keine Bilder für dieses Produkt gefunden");
+      }
+
+      // Update state with selected product
+      setCurrentState(prev => ({
+        ...prev,
+        campaignState: {
+          ...prev.campaignState!,
+          selectedProduct: product,
+        },
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `[CAMPAIGN_IMAGE_SELECTOR:${JSON.stringify({ images: imageUrls, productName: product.product_name })}]`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+
+    } catch (error: any) {
+      console.error("Error selecting campaign product:", error);
+      setCurrentState(prev => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `Fehler beim Laden des Produkts: ${error.message}`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            status: "error" as const,
+          },
+        ],
+      }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCampaignImageSelection = (imageUrl: string) => {
+    setCurrentState(prev => ({
+      ...prev,
+      campaignState: {
+        ...prev.campaignState!,
+        selectedImage: imageUrl,
+      },
+      messages: [
+        ...prev.messages,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: "Perfekt! Möchtest du noch zusätzliche Hinweise für die Kampagne geben? (z.B. bestimmte Farben, Stil, Text)\n\nWenn nicht, schreibe einfach 'Generieren' oder 'Los geht's'.",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ],
+    }));
+  };
+
+  const handleCampaignGeneration = async (additionalComments: string = "") => {
+    try {
+      // Update state to show generation is in progress
+      setCurrentState(prev => ({
+        ...prev,
+        campaignState: {
+          ...prev.campaignState!,
+          isGenerating: true,
+        },
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "Starte Kampagnen-Erstellung... Dies kann bis zu 8 Minuten dauern.",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+
+      // Get user and business data
+      const { data: userData } = await supabaseBrowserClient.auth.getUser();
+      if (!userData?.user) {
+        throw new Error("Nicht angemeldet");
+      }
+
+      const { getUserBusiness } = await import("@/lib/database");
+      const business = await getUserBusiness(userData.user.id);
+      if (!business) {
+        throw new Error("Kein Business gefunden");
+      }
+
+      const product = currentState.campaignState?.selectedProduct;
+      const selectedImage = currentState.campaignState?.selectedImage;
+
+      if (!product || !selectedImage) {
+        throw new Error("Produkt oder Bild nicht ausgewählt");
+      }
+
+      // Prepare brand DNA
+      const brandDNA = {
+        tone_of_voice: business.tone_of_voice || [],
+        brand_values: business.brand_values || [],
+        brand_colors: business.brand_colors || [],
+      };
+
+      // Call campaign generation webhook to start the job
+      const response = await fetch("/api/webhook/social-media-campaign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: userData.user.id,
+          businessId: business.id,
+          productId: product.id,
+          product: {
+            name: product.product_name,
+            description: product.product_description,
+            key_features: product.key_features || [],
+            benefits: product.benefits || [],
+          },
+          selectedImage,
+          brandDNA,
+          additionalComments,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Kampagnen-Erstellung fehlgeschlagen");
+      }
+
+      const result = await response.json();
+
+      if (!result.jobId) {
+        throw new Error("Keine Job-ID erhalten");
+      }
+
+      const jobId = result.jobId;
+      console.log("Campaign generation started, job ID:", jobId);
+
+      // Update message to show polling started
+      setCurrentState(prev => ({
+        ...prev,
+        messages: [
+          ...prev.messages.slice(0, -1), // Remove the "Starte..." message
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "Kampagnen-Erstellung läuft... Ich überprüfe alle paar Sekunden den Status.",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+
+      // Poll for job completion
+      const maxPollingAttempts = 120; // 120 * 5 seconds = 10 minutes max
+      let attempts = 0;
+
+      const pollStatus = async (): Promise<void> => {
+        if (attempts >= maxPollingAttempts) {
+          throw new Error("Kampagnen-Erstellung hat zu lange gedauert (über 10 Minuten)");
+        }
+
+        attempts++;
+
+        const statusResponse = await fetch(`/api/campaign-status/${jobId}`);
+
+        if (!statusResponse.ok) {
+          throw new Error("Fehler beim Abrufen des Job-Status");
+        }
+
+        const statusData = await statusResponse.json();
+        const { status, images, errorMessage } = statusData.job;
+
+        console.log(`Polling attempt ${attempts}: status = ${status}`);
+
+        if (status === "completed") {
+          if (!images || images.length === 0) {
+            throw new Error("Keine Bilder generiert");
+          }
+
+          // Auto-save all images to gallery
+          await saveImagesToGallery(images, product.product_name);
+
+          // Update state with generated images
+          setCurrentState(prev => ({
+            ...prev,
+            campaignState: {
+              ...prev.campaignState!,
+              generatedImages: images,
+              isGenerating: false,
+            },
+            messages: [
+              ...prev.messages.slice(0, -1), // Remove the "läuft..." message
+              {
+                id: Date.now().toString(),
+                role: "assistant",
+                content: `Deine Kampagnenbilder sind fertig! Ich habe ${images.length} Varianten für dich erstellt.\n\n[CAMPAIGN_GENERATED_IMAGES:${JSON.stringify(images)}]\n\nAlle Bilder wurden automatisch in deiner Galerie gespeichert. Du kannst jedes Bild bearbeiten, indem du darauf klickst.`,
+                timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              },
+            ],
+          }));
+
+          return; // Done!
+        } else if (status === "failed") {
+          throw new Error(errorMessage || "Kampagnen-Erstellung fehlgeschlagen");
+        } else {
+          // Still processing, wait and poll again
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+          return pollStatus();
+        }
+      };
+
+      await pollStatus();
+
+    } catch (error: any) {
+      console.error("Error generating campaign:", error);
+      setCurrentState(prev => ({
+        ...prev,
+        campaignState: {
+          ...prev.campaignState!,
+          isGenerating: false,
+        },
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `Fehler bei der Kampagnen-Erstellung: ${error.message}`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            status: "error" as const,
+          },
+        ],
+      }));
+    }
+  };
+
+  const handleCampaignImageEdit = async (imageUrl: string, editPrompt: string) => {
+    try {
+      // Find the index of the image being edited
+      const imageIndex = currentState.campaignState?.generatedImages.findIndex(img => img === imageUrl) ?? -1;
+
+      if (imageIndex === -1) {
+        throw new Error("Bild nicht gefunden");
+      }
+
+      // Update state to show editing is in progress
+      setCurrentState(prev => ({
+        ...prev,
+        campaignState: {
+          ...prev.campaignState!,
+          isEditingImage: true,
+          editingImageIndex: imageIndex,
+        },
+      }));
+
+      // Call the existing edit webhook
+      const response = await fetch("/api/webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId: 0, // Use Bilder product ID for edit workflow
+          prompt: editPrompt,
+          isEditing: true,
+          imageUrl,
+          aspectRatio: "1:1", // Social media standard
+          resolution: "2K",
+          outputFormat: "jpg",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Bild-Bearbeitung fehlgeschlagen");
+      }
+
+      const result = await response.json();
+
+      if (!result.imageUrl) {
+        throw new Error("Keine Bild-URL erhalten");
+      }
+
+      // Update the specific image in the array
+      const updatedImages = [...(currentState.campaignState?.generatedImages || [])];
+      updatedImages[imageIndex] = result.imageUrl;
+
+      // Auto-save the edited image to gallery
+      await saveImagesToGallery([result.imageUrl], `${currentState.campaignState?.selectedProduct?.product_name} (Bearbeitet)`);
+
+      // Update state with new image
+      setCurrentState(prev => ({
+        ...prev,
+        campaignState: {
+          ...prev.campaignState!,
+          generatedImages: updatedImages,
+          isEditingImage: false,
+          editingImageIndex: null,
+        },
+      }));
+
+    } catch (error: any) {
+      console.error("Error editing campaign image:", error);
+      setCurrentState(prev => ({
+        ...prev,
+        campaignState: {
+          ...prev.campaignState!,
+          isEditingImage: false,
+          editingImageIndex: null,
+        },
+      }));
+      // Error will be shown by the GeneratedImagesDisplay component
+    }
+  };
+
+  const saveImagesToGallery = async (imageUrls: string[], productName: string) => {
+    try {
+      const { saveProject } = await import("@/lib/gallery/galleryService");
+
+      for (const imageUrl of imageUrls) {
+        await saveProject({
+          product_type: 1, // Social Media Paket
+          image_url: imageUrl,
+          project_name: `${productName} - Kampagne - ${new Date().toLocaleDateString()}`,
+          generation_params: {
+            product: productName,
+            campaignType: "product",
+          } as any,
+        });
+      }
+
+      console.log(`Saved ${imageUrls.length} images to gallery`);
+    } catch (error) {
+      console.error("Failed to save images to gallery:", error);
+      // Don't fail the whole process if saving fails
     }
   };
 
@@ -1164,7 +1631,18 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
       <ChatMessages
         messages={currentState.messages}
         onImageSelection={selectedProductId === 0 || selectedProductId === 2 ? handleImageSelection : undefined}
-        onProductSelection={selectedProductId === 0 || selectedProductId === 2 ? handleProductSelection : undefined}
+        onProductSelection={selectedProductId === 0 || selectedProductId === 1 || selectedProductId === 2 ? handleProductSelection : undefined}
+        onCampaignTypeSelection={selectedProductId === 1 ? handleCampaignTypeSelection : undefined}
+        onCampaignImageSelection={selectedProductId === 1 ? handleCampaignImageSelection : undefined}
+        onCampaignImageEdit={selectedProductId === 1 ? handleCampaignImageEdit : undefined}
+        campaignState={
+          selectedProductId === 1
+            ? {
+                isGenerating: currentState.campaignState?.isGenerating,
+                isEditingImage: currentState.campaignState?.isEditingImage,
+              }
+            : undefined
+        }
       />
       <ChatInput onSendMessage={handleSendMessage} disabled={isLoading || (currentState.isComplete && !currentState.isRefining)} />
     </div>

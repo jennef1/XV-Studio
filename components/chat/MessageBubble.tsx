@@ -4,6 +4,10 @@ import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { useState } from "react";
 import ProductSelectionCards from "./ProductSelectionCards";
+import CampaignTypeSelector from "./CampaignTypeSelector";
+import ProductSelector from "./ProductSelector";
+import ProductImageSelector from "./ProductImageSelector";
+import GeneratedImagesDisplay from "./GeneratedImagesDisplay";
 import { Database } from "@/types/database";
 
 type BusinessProduct = Database["public"]["Tables"]["business_products"]["Row"];
@@ -16,6 +20,13 @@ interface MessageBubbleProps {
   imageUrls?: string[];
   onImageSelection?: (selectedUrls: string[]) => void;
   onProductSelection?: (productId: string) => void;
+  onCampaignTypeSelection?: (type: "product" | "concept") => void;
+  onCampaignImageSelection?: (imageUrl: string) => void;
+  onCampaignImageEdit?: (imageUrl: string, editPrompt: string) => void;
+  campaignState?: {
+    isGenerating?: boolean;
+    isEditingImage?: boolean;
+  };
 }
 
 export default function MessageBubble({
@@ -26,6 +37,10 @@ export default function MessageBubble({
   imageUrls,
   onImageSelection,
   onProductSelection,
+  onCampaignTypeSelection,
+  onCampaignImageSelection,
+  onCampaignImageEdit,
+  campaignState,
 }: MessageBubbleProps) {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
 
@@ -106,9 +121,123 @@ export default function MessageBubble({
     return { cleanMessage: cleanMsg, parsedImageUrls: parsedUrls };
   };
 
+  // Parse campaign markers from message
+  const parseCampaignMarkers = (msg: string): {
+    cleanMessage: string;
+    showCampaignTypeSelector: boolean;
+    showCampaignProductSelector: boolean;
+    campaignImageSelectorData: { images: string[]; productName: string } | null;
+    campaignGeneratedImages: string[] | null;
+  } => {
+    let cleanMsg = msg;
+    let showCampaignTypeSelector = false;
+    let showCampaignProductSelector = false;
+    let campaignImageSelectorData = null;
+    let campaignGeneratedImages = null;
+
+    // Check for [CAMPAIGN_TYPE_SELECTOR]
+    if (cleanMsg.includes('[CAMPAIGN_TYPE_SELECTOR]')) {
+      showCampaignTypeSelector = true;
+      cleanMsg = cleanMsg.replace('[CAMPAIGN_TYPE_SELECTOR]', '').trim();
+    }
+
+    // Check for [CAMPAIGN_PRODUCT_SELECTOR]
+    if (cleanMsg.includes('[CAMPAIGN_PRODUCT_SELECTOR]')) {
+      showCampaignProductSelector = true;
+      cleanMsg = cleanMsg.replace('[CAMPAIGN_PRODUCT_SELECTOR]', '').trim();
+    }
+
+    // Check for [CAMPAIGN_IMAGE_SELECTOR:{...}] using brace counting for robust parsing
+    const imageSelectorMarker = '[CAMPAIGN_IMAGE_SELECTOR:';
+    const imageSelectorStart = cleanMsg.indexOf(imageSelectorMarker);
+    if (imageSelectorStart !== -1) {
+      // Find matching closing bracket by counting braces
+      let braceCount = 0;
+      let endIndex = -1;
+      let i = imageSelectorStart + imageSelectorMarker.length;
+
+      for (; i < cleanMsg.length; i++) {
+        if (cleanMsg[i] === '{') {
+          braceCount++;
+        } else if (cleanMsg[i] === '}') {
+          braceCount--;
+          if (braceCount === 0) {
+            endIndex = i;
+            break;
+          }
+        }
+      }
+
+      if (endIndex !== -1) {
+        // Check if there's a closing ] after the }
+        if (cleanMsg[endIndex + 1] === ']') {
+          const jsonStr = cleanMsg.substring(imageSelectorStart + imageSelectorMarker.length, endIndex + 1);
+          try {
+            campaignImageSelectorData = JSON.parse(jsonStr);
+            const fullMarker = cleanMsg.substring(imageSelectorStart, endIndex + 2);
+            cleanMsg = cleanMsg.replace(fullMarker, '').trim();
+          } catch (error) {
+            console.error("Error parsing campaign image selector data:", error, "JSON:", jsonStr);
+          }
+        }
+      }
+    }
+
+    // Check for [CAMPAIGN_GENERATED_IMAGES:[...]] using bracket counting
+    const generatedImagesMarker = '[CAMPAIGN_GENERATED_IMAGES:';
+    const generatedImagesStart = cleanMsg.indexOf(generatedImagesMarker);
+    if (generatedImagesStart !== -1) {
+      // Find matching closing bracket by counting brackets
+      let bracketCount = 0;
+      let endIndex = -1;
+      let i = generatedImagesStart + generatedImagesMarker.length;
+
+      for (; i < cleanMsg.length; i++) {
+        if (cleanMsg[i] === '[') {
+          bracketCount++;
+        } else if (cleanMsg[i] === ']') {
+          bracketCount--;
+          if (bracketCount === 0) {
+            endIndex = i;
+            break;
+          }
+        }
+      }
+
+      if (endIndex !== -1) {
+        // Check if there's a closing ] after the array ]
+        if (cleanMsg[endIndex + 1] === ']') {
+          const jsonStr = cleanMsg.substring(generatedImagesStart + generatedImagesMarker.length, endIndex + 1);
+          try {
+            campaignGeneratedImages = JSON.parse(jsonStr);
+            const fullMarker = cleanMsg.substring(generatedImagesStart, endIndex + 2);
+            cleanMsg = cleanMsg.replace(fullMarker, '').trim();
+          } catch (error) {
+            console.error("Error parsing campaign generated images:", error, "JSON:", jsonStr);
+          }
+        }
+      }
+    }
+
+    return {
+      cleanMessage: cleanMsg,
+      showCampaignTypeSelector,
+      showCampaignProductSelector,
+      campaignImageSelectorData,
+      campaignGeneratedImages,
+    };
+  };
+
   // Parse both products and images from message
   const { cleanMessage: msgAfterProducts, products } = parseProductSelectionFromMessage(message);
-  const { cleanMessage, parsedImageUrls } = parseImagesFromMessage(msgAfterProducts);
+  const { cleanMessage: msgAfterImages, parsedImageUrls } = parseImagesFromMessage(msgAfterProducts);
+  const {
+    cleanMessage,
+    showCampaignTypeSelector,
+    showCampaignProductSelector,
+    campaignImageSelectorData,
+    campaignGeneratedImages,
+  } = parseCampaignMarkers(msgAfterImages);
   const allImageUrls = [...(imageUrls || []), ...parsedImageUrls];
 
   // Handle product selection
@@ -218,6 +347,42 @@ export default function MessageBubble({
               <ProductSelectionCards
                 products={products}
                 onProductSelect={handleProductSelect}
+              />
+            </div>
+          )}
+
+          {/* Display campaign type selector */}
+          {showCampaignTypeSelector && !isUser && onCampaignTypeSelection && (
+            <div className="mt-3">
+              <CampaignTypeSelector onSelectType={onCampaignTypeSelection} />
+            </div>
+          )}
+
+          {/* Display campaign product selector */}
+          {showCampaignProductSelector && !isUser && onProductSelection && (
+            <div className="mt-3">
+              <ProductSelector onSelectProduct={(product) => onProductSelection(product.id)} />
+            </div>
+          )}
+
+          {/* Display campaign image selector */}
+          {campaignImageSelectorData && !isUser && onCampaignImageSelection && (
+            <div className="mt-3">
+              <ProductImageSelector
+                images={campaignImageSelectorData.images}
+                productName={campaignImageSelectorData.productName}
+                onSelectImage={onCampaignImageSelection}
+              />
+            </div>
+          )}
+
+          {/* Display generated campaign images */}
+          {campaignGeneratedImages && campaignGeneratedImages.length > 0 && !isUser && onCampaignImageEdit && (
+            <div className="mt-3">
+              <GeneratedImagesDisplay
+                images={campaignGeneratedImages}
+                onEditImage={onCampaignImageEdit}
+                isEditing={campaignState?.isEditingImage || false}
               />
             </div>
           )}
