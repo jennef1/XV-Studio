@@ -12,6 +12,7 @@ export default function ProductsView() {
   const [selectedProduct, setSelectedProduct] = useState<BusinessProduct | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasBusiness, setHasBusiness] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
   const [productUrl, setProductUrl] = useState("");
   const [productName, setProductName] = useState("");
   const [productDescription, setProductDescription] = useState("");
@@ -21,6 +22,7 @@ export default function ProductsView() {
   const [isFetching, setIsFetching] = useState(false);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -174,13 +176,37 @@ export default function ProductsView() {
         uploadedUrls.push(data.url);
       }
 
-      setUploadedImages([...uploadedImages, ...uploadedUrls]);
+      // If editing a specific image slot, replace it
+      if (editingImageIndex !== null) {
+        const newImages = [...uploadedImages];
+        uploadedUrls.forEach((url, i) => {
+          const targetIndex = editingImageIndex + i;
+          if (targetIndex < 5) { // Max 5 images (0-4)
+            newImages[targetIndex] = url;
+          }
+        });
+        setUploadedImages(newImages);
+      } else {
+        // Otherwise append
+        setUploadedImages([...uploadedImages, ...uploadedUrls]);
+      }
+
+      setEditingImageIndex(null);
+      // Reset file input to allow re-uploading the same file
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (error: any) {
       console.error("Error uploading images:", error);
       alert(`Fehler beim Hochladen der Bilder: ${error.message || "Bitte versuche es erneut."}`);
     } finally {
       setIsUploadingImages(false);
     }
+  };
+
+  const handleDeleteImage = (index: number) => {
+    const newImages = uploadedImages.filter((_, i) => i !== index);
+    setUploadedImages(newImages);
   };
 
   const handleAddManualProduct = async () => {
@@ -264,15 +290,8 @@ export default function ProductsView() {
 
       await fetchProducts();
 
-      // Reset form
-      setProductUrl("");
-      setProductName("");
-      setProductDescription("");
-      setKeyFeatures([]);
-      setBenefits([]);
-      setTargetCustomer("");
-      setUploadedImages([]);
-      setSelectedProduct(null);
+      // Exit editing mode
+      setIsEditing(false);
 
       alert("Produkt erfolgreich aktualisiert!");
     } catch (error: any) {
@@ -283,10 +302,39 @@ export default function ProductsView() {
 
   const handleSelectProduct = (product: BusinessProduct) => {
     setSelectedProduct(product);
+    setIsEditing(false);
   };
 
   const handleNewProduct = () => {
     setSelectedProduct(null);
+    setIsEditing(true);
+  };
+
+  const handleStartEditing = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancelEditing = () => {
+    if (selectedProduct) {
+      // Revert to original values
+      setProductUrl(selectedProduct.source_url || "");
+      setProductName(selectedProduct.product_name || "");
+      setProductDescription(selectedProduct.product_description || "");
+      setKeyFeatures((selectedProduct.key_features as string[]) || []);
+      setBenefits((selectedProduct.benefits as string[]) || []);
+      setTargetCustomer(selectedProduct.target_customer || "");
+      setUploadedImages((selectedProduct.product_images as string[]) || []);
+      setIsEditing(false);
+    } else {
+      // Cancel new product
+      setProductUrl("");
+      setProductName("");
+      setProductDescription("");
+      setKeyFeatures([]);
+      setBenefits([]);
+      setTargetCustomer("");
+      setUploadedImages([]);
+    }
   };
 
   if (isLoading) {
@@ -340,7 +388,7 @@ export default function ProductsView() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
           </div>
-          <span className="text-gray-700 dark:text-gray-300 font-medium">Add product manually</span>
+          <span className="text-gray-700 dark:text-gray-300 font-medium">Produkt manuell hinzufügen</span>
         </button>
 
         {/* Product List */}
@@ -379,12 +427,128 @@ export default function ProductsView() {
       {/* Right Panel - Product Form */}
       <div className="flex-1 overflow-y-auto p-8 h-full">
         <div className="max-w-3xl mx-auto pb-20">
-          {/* Quick Import from URL - Only show for new products */}
-          {!selectedProduct && (
+          {/* Read-only Product Display */}
+          {selectedProduct && !isEditing && (
+            <div className="space-y-6 mb-8">
+              {/* Header with Edit Button */}
+              <div className="flex items-center justify-between mb-6">
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                  {selectedProduct.product_name}
+                </h1>
+                <button
+                  onClick={handleStartEditing}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                  Bearbeiten
+                </button>
+              </div>
+
+              {/* Product Images */}
+              {selectedProduct.product_images && (selectedProduct.product_images as string[]).length > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-3xl border-2 border-gray-200 dark:border-gray-700 p-6">
+                  <div className="flex gap-4">
+                    {/* Main Image */}
+                    <div className="w-80 h-80 rounded-3xl overflow-hidden flex-shrink-0">
+                      <Image
+                        src={(selectedProduct.product_images as string[])[0]}
+                        alt={selectedProduct.product_name || "Product"}
+                        width={320}
+                        height={320}
+                        className="w-full h-full object-cover"
+                        unoptimized
+                      />
+                    </div>
+                    {/* Additional Images Grid */}
+                    {(selectedProduct.product_images as string[]).length > 1 && (
+                      <div className="grid grid-cols-2 gap-3 w-80">
+                        {(selectedProduct.product_images as string[]).slice(1, 5).map((img, index) => (
+                          <div key={index} className="aspect-square rounded-3xl overflow-hidden">
+                            <Image
+                              src={img}
+                              alt={`${selectedProduct.product_name} ${index + 2}`}
+                              width={150}
+                              height={150}
+                              className="w-full h-full object-cover"
+                              unoptimized
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
+              {selectedProduct.product_description && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">Beschreibung</h3>
+                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+                    {selectedProduct.product_description}
+                  </p>
+                </div>
+              )}
+
+              {/* Key Features */}
+              {selectedProduct.key_features && Array.isArray(selectedProduct.key_features) && selectedProduct.key_features.length > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-3xl border-2 border-gray-200 dark:border-gray-700 p-6">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Hauptmerkmale</h3>
+                  <div className="flex flex-wrap gap-3">
+                    {(selectedProduct.key_features as string[]).map((feature, index) => (
+                      <span
+                        key={index}
+                        className="px-4 py-2 bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 rounded-2xl text-sm font-medium"
+                      >
+                        {feature}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Benefits */}
+              {selectedProduct.benefits && Array.isArray(selectedProduct.benefits) && selectedProduct.benefits.length > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-3xl border-2 border-gray-200 dark:border-gray-700 p-6">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Vorteile</h3>
+                  <div className="flex flex-wrap gap-3">
+                    {(selectedProduct.benefits as string[]).map((benefit, index) => (
+                      <span
+                        key={index}
+                        className="px-4 py-2 bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 rounded-2xl text-sm font-medium"
+                      >
+                        {benefit}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Target Customer */}
+              {selectedProduct.target_customer && (
+                <div className="bg-white dark:bg-gray-800 rounded-3xl border-2 border-gray-200 dark:border-gray-700 p-6">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Zielgruppe</h3>
+                  <div className="flex flex-wrap gap-3">
+                    <span className="px-4 py-2 bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 rounded-2xl text-sm font-medium">
+                      {selectedProduct.target_customer}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Edit Form - Only show when editing or creating new product */}
+          {(!selectedProduct || isEditing) && (
+            <>
+              {/* Quick Import from URL - Only show for new products */}
+              {!selectedProduct && (
             <div className="mb-8">
               <div className="flex items-center justify-between mb-3">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Quick import from URL
+                  Schnellimport von URL
                 </label>
                 <span className="text-xs text-blue-500 font-medium">Optional</span>
               </div>
@@ -428,14 +592,19 @@ export default function ProductsView() {
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-3">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Product images
+                Produktbilder
               </label>
               <span className="text-red-500">*</span>
             </div>
             <div className="flex gap-4">
               {/* Main Image Upload - Larger */}
               <div
-                onClick={() => !isUploadingImages && fileInputRef.current?.click()}
+                onClick={() => {
+                  if (!isUploadingImages) {
+                    setEditingImageIndex(0);
+                    fileInputRef.current?.click();
+                  }
+                }}
                 className={`w-80 h-80 rounded-3xl border-2 border-dashed border-gray-300 dark:border-gray-700 flex flex-col items-center justify-center transition-colors bg-white dark:bg-gray-800 group ${
                   isUploadingImages
                     ? "opacity-50 cursor-not-allowed"
@@ -443,13 +612,26 @@ export default function ProductsView() {
                 }`}
               >
                 {uploadedImages[0] ? (
-                  <Image
-                    src={uploadedImages[0]}
-                    alt="Product image 1"
-                    width={320}
-                    height={320}
-                    className="w-full h-full object-cover rounded-3xl"
-                  />
+                  <div className="relative w-full h-full">
+                    <Image
+                      src={uploadedImages[0]}
+                      alt="Product image 1"
+                      width={320}
+                      height={320}
+                      className="w-full h-full object-cover rounded-3xl"
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteImage(0);
+                      }}
+                      className="absolute top-3 right-3 w-10 h-10 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 ) : (
                   <>
                     <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center mb-3">
@@ -458,7 +640,7 @@ export default function ProductsView() {
                       </svg>
                     </div>
                     <p className="text-xs text-gray-400 text-center px-2">
-                      Drop image here or click to upload
+                      Bild hier ablegen oder klicken zum Hochladen
                     </p>
                   </>
                 )}
@@ -469,21 +651,39 @@ export default function ProductsView() {
                 {[1, 2, 3, 4].map((index) => (
                   <div
                     key={index}
-                    onClick={() => !isUploadingImages && fileInputRef.current?.click()}
-                    className={`aspect-square rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-center transition-colors bg-white dark:bg-gray-800 ${
+                    onClick={() => {
+                      if (!isUploadingImages) {
+                        setEditingImageIndex(index);
+                        fileInputRef.current?.click();
+                      }
+                    }}
+                    className={`aspect-square rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-center transition-colors bg-white dark:bg-gray-800 group ${
                       isUploadingImages
                         ? "opacity-50 cursor-not-allowed"
                         : "hover:border-gray-300 dark:hover:border-gray-600 cursor-pointer"
                     }`}
                   >
                     {uploadedImages[index] ? (
-                      <Image
-                        src={uploadedImages[index]}
-                        alt={`Product image ${index + 1}`}
-                        width={150}
-                        height={150}
-                        className="w-full h-full object-cover rounded-3xl"
-                      />
+                      <div className="relative w-full h-full">
+                        <Image
+                          src={uploadedImages[index]}
+                          alt={`Product image ${index + 1}`}
+                          width={150}
+                          height={150}
+                          className="w-full h-full object-cover rounded-3xl"
+                        />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteImage(index);
+                          }}
+                          className="absolute top-2 right-2 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
                     ) : (
                       <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center">
                         <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -518,7 +718,7 @@ export default function ProductsView() {
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-3">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Product Title
+                Produkttitel
               </label>
               <span className="text-red-500">*</span>
             </div>
@@ -526,7 +726,7 @@ export default function ProductsView() {
               type="text"
               value={productName}
               onChange={(e) => setProductName(e.target.value)}
-              placeholder="Enter title for new product..."
+              placeholder="Titel für neues Produkt eingeben..."
               className="w-full px-4 py-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500"
             />
           </div>
@@ -535,14 +735,14 @@ export default function ProductsView() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Description
+                Beschreibung
               </label>
               <span className="text-xs text-blue-500 font-medium">Optional</span>
             </div>
             <textarea
               value={productDescription}
               onChange={(e) => setProductDescription(e.target.value)}
-              placeholder="Enter description for new product..."
+              placeholder="Beschreibung für neues Produkt eingeben..."
               rows={4}
               className="w-full px-4 py-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500 resize-none"
             />
@@ -552,7 +752,7 @@ export default function ProductsView() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Key Features
+                Hauptmerkmale
               </label>
               <span className="text-xs text-blue-500 font-medium">Optional</span>
             </div>
@@ -567,7 +767,7 @@ export default function ProductsView() {
                       newFeatures[index] = e.target.value;
                       setKeyFeatures(newFeatures);
                     }}
-                    placeholder={`Feature ${index + 1}`}
+                    placeholder={`Merkmal ${index + 1}`}
                     className="flex-1 px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-2xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500"
                   />
                   <button
@@ -587,7 +787,7 @@ export default function ProductsView() {
                 onClick={() => setKeyFeatures([...keyFeatures, ""])}
                 className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
               >
-                + Add feature
+                + Merkmal hinzufügen
               </button>
             </div>
           </div>
@@ -596,7 +796,7 @@ export default function ProductsView() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Benefits
+                Vorteile
               </label>
               <span className="text-xs text-blue-500 font-medium">Optional</span>
             </div>
@@ -611,7 +811,7 @@ export default function ProductsView() {
                       newBenefits[index] = e.target.value;
                       setBenefits(newBenefits);
                     }}
-                    placeholder={`Benefit ${index + 1}`}
+                    placeholder={`Vorteil ${index + 1}`}
                     className="flex-1 px-4 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-2xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500"
                   />
                   <button
@@ -631,7 +831,7 @@ export default function ProductsView() {
                 onClick={() => setBenefits([...benefits, ""])}
                 className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
               >
-                + Add benefit
+                + Vorteil hinzufügen
               </button>
             </div>
           </div>
@@ -640,14 +840,14 @@ export default function ProductsView() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Target Customer
+                Zielgruppe
               </label>
               <span className="text-xs text-blue-500 font-medium">Optional</span>
             </div>
             <textarea
               value={targetCustomer}
               onChange={(e) => setTargetCustomer(e.target.value)}
-              placeholder="Describe your target customer..."
+              placeholder="Beschreibe deine Zielgruppe..."
               rows={3}
               className="w-full px-4 py-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500 resize-none"
             />
@@ -655,9 +855,9 @@ export default function ProductsView() {
 
           {/* Save Button */}
           <div className="flex justify-end gap-3">
-            {selectedProduct && (
+            {selectedProduct && isEditing && (
               <button
-                onClick={handleNewProduct}
+                onClick={handleCancelEditing}
                 className="px-8 py-3 bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white font-medium rounded-2xl hover:bg-gray-300 dark:hover:bg-gray-700 transition-all shadow-lg"
               >
                 Abbrechen
@@ -671,6 +871,8 @@ export default function ProductsView() {
               {selectedProduct ? "Änderungen speichern" : "Produkt speichern"}
             </button>
           </div>
+            </>
+          )}
         </div>
       </div>
     </div>

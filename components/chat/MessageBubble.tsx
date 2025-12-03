@@ -8,6 +8,8 @@ import CampaignTypeSelector from "./CampaignTypeSelector";
 import ProductSelector from "./ProductSelector";
 import ProductImageSelector from "./ProductImageSelector";
 import GeneratedImagesDisplay from "./GeneratedImagesDisplay";
+import BilderWorkflowSelector from "./BilderWorkflowSelector";
+import ProductImagesMultiSelector from "./ProductImagesMultiSelector";
 import { Database } from "@/types/database";
 
 type BusinessProduct = Database["public"]["Tables"]["business_products"]["Row"];
@@ -22,11 +24,15 @@ interface MessageBubbleProps {
   onProductSelection?: (productId: string) => void;
   onCampaignTypeSelection?: (type: "product" | "concept") => void;
   onCampaignImageSelection?: (imageUrl: string) => void;
+  onCampaignGeneratedImageView?: (imageUrl: string) => void;
   onCampaignImageEdit?: (imageUrl: string, editPrompt: string) => void;
   campaignState?: {
     isGenerating?: boolean;
     isEditingImage?: boolean;
   };
+  // Bilder workflow handlers
+  onBilderWorkflowSelection?: (workflow: "product" | "combine" | "freebird") => void;
+  onBilderProductImagesConfirm?: (selectedImages: string[]) => void;
 }
 
 export default function MessageBubble({
@@ -39,8 +45,11 @@ export default function MessageBubble({
   onProductSelection,
   onCampaignTypeSelection,
   onCampaignImageSelection,
+  onCampaignGeneratedImageView,
   onCampaignImageEdit,
   campaignState,
+  onBilderWorkflowSelection,
+  onBilderProductImagesConfirm,
 }: MessageBubbleProps) {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
 
@@ -228,16 +237,86 @@ export default function MessageBubble({
     };
   };
 
+  // Parse Bilder workflow markers
+  const parseBilderWorkflowMarkers = (msg: string): {
+    cleanMessage: string;
+    showBilderWorkflowSelector: boolean;
+    showBilderProductSelector: boolean;
+    bilderProductImagesData: { images: string[]; productName: string } | null;
+  } => {
+    let cleanMsg = msg;
+    let showBilderWorkflowSelector = false;
+    let showBilderProductSelector = false;
+    let bilderProductImagesData = null;
+
+    // Check for [BILDER_WORKFLOW_SELECTOR]
+    if (cleanMsg.includes('[BILDER_WORKFLOW_SELECTOR]')) {
+      showBilderWorkflowSelector = true;
+      cleanMsg = cleanMsg.replace('[BILDER_WORKFLOW_SELECTOR]', '').trim();
+    }
+
+    // Check for [BILDER_PRODUCT_SELECTOR]
+    if (cleanMsg.includes('[BILDER_PRODUCT_SELECTOR]')) {
+      showBilderProductSelector = true;
+      cleanMsg = cleanMsg.replace('[BILDER_PRODUCT_SELECTOR]', '').trim();
+    }
+
+    // Check for [BILDER_PRODUCT_IMAGES:{...}]
+    const imagesMarker = '[BILDER_PRODUCT_IMAGES:';
+    const imagesStart = cleanMsg.indexOf(imagesMarker);
+    if (imagesStart !== -1) {
+      let braceCount = 0;
+      let endIndex = -1;
+      let i = imagesStart + imagesMarker.length;
+
+      for (; i < cleanMsg.length; i++) {
+        if (cleanMsg[i] === '{') {
+          braceCount++;
+        } else if (cleanMsg[i] === '}') {
+          braceCount--;
+          if (braceCount === 0) {
+            endIndex = i;
+            break;
+          }
+        }
+      }
+
+      if (endIndex !== -1 && cleanMsg[endIndex + 1] === ']') {
+        const jsonStr = cleanMsg.substring(imagesStart + imagesMarker.length, endIndex + 1);
+        try {
+          bilderProductImagesData = JSON.parse(jsonStr);
+          const fullMarker = cleanMsg.substring(imagesStart, endIndex + 2);
+          cleanMsg = cleanMsg.replace(fullMarker, '').trim();
+        } catch (error) {
+          console.error("Error parsing Bilder product images data:", error, "JSON:", jsonStr);
+        }
+      }
+    }
+
+    return {
+      cleanMessage: cleanMsg,
+      showBilderWorkflowSelector,
+      showBilderProductSelector,
+      bilderProductImagesData,
+    };
+  };
+
   // Parse both products and images from message
   const { cleanMessage: msgAfterProducts, products } = parseProductSelectionFromMessage(message);
   const { cleanMessage: msgAfterImages, parsedImageUrls } = parseImagesFromMessage(msgAfterProducts);
   const {
-    cleanMessage,
+    cleanMessage: msgAfterCampaign,
     showCampaignTypeSelector,
     showCampaignProductSelector,
     campaignImageSelectorData,
     campaignGeneratedImages,
   } = parseCampaignMarkers(msgAfterImages);
+  const {
+    cleanMessage,
+    showBilderWorkflowSelector,
+    showBilderProductSelector,
+    bilderProductImagesData,
+  } = parseBilderWorkflowMarkers(msgAfterCampaign);
   const allImageUrls = [...(imageUrls || []), ...parsedImageUrls];
 
   // Handle product selection
@@ -377,12 +456,37 @@ export default function MessageBubble({
           )}
 
           {/* Display generated campaign images */}
-          {campaignGeneratedImages && campaignGeneratedImages.length > 0 && !isUser && onCampaignImageEdit && (
+          {campaignGeneratedImages && campaignGeneratedImages.length > 0 && !isUser && onCampaignGeneratedImageView && (
             <div className="mt-3">
               <GeneratedImagesDisplay
                 images={campaignGeneratedImages}
-                onEditImage={onCampaignImageEdit}
+                onImageSelect={onCampaignGeneratedImageView}
                 isEditing={campaignState?.isEditingImage || false}
+              />
+            </div>
+          )}
+
+          {/* Display Bilder workflow selector */}
+          {showBilderWorkflowSelector && !isUser && onBilderWorkflowSelection && (
+            <div className="mt-3">
+              <BilderWorkflowSelector onSelectWorkflow={onBilderWorkflowSelection} />
+            </div>
+          )}
+
+          {/* Display Bilder product selector */}
+          {showBilderProductSelector && !isUser && onProductSelection && (
+            <div className="mt-3">
+              <ProductSelector onSelectProduct={(product) => onProductSelection(product.id)} />
+            </div>
+          )}
+
+          {/* Display Bilder product images selector */}
+          {bilderProductImagesData && !isUser && onBilderProductImagesConfirm && (
+            <div className="mt-3">
+              <ProductImagesMultiSelector
+                images={bilderProductImagesData.images}
+                productName={bilderProductImagesData.productName}
+                onConfirmSelection={onBilderProductImagesConfirm}
               />
             </div>
           )}

@@ -23,16 +23,24 @@ export async function POST(request: NextRequest) {
 
     // For Bilder (productId 0), choose webhook based on the operation type
     if (productId === 0) {
+      console.log("🔍 Bilder webhook selection - isEditing:", webhookPayload.isEditing, "hasReferenceImages:", webhookPayload.hasReferenceImages);
+
       if (webhookPayload.isEditing) {
         // Use edit webhook for refinements/edits
+        console.log("✅ Selected EDIT webhook (isEditing=true)");
         webhookUrl = BILDER_EDIT_IMAGE_WEBHOOK;
       } else if (webhookPayload.hasReferenceImages) {
         // Use with images webhook for initial creation with reference images
+        console.log("✅ Selected WITH_IMAGES webhook (hasReferenceImages=true)");
         webhookUrl = BILDER_WITH_IMAGES_WEBHOOK;
+      } else {
+        console.log("✅ Selected PROMPT_ONLY webhook (default)");
       }
+
+      console.log("🎯 Final webhook URL:", webhookUrl?.substring(0, 50) + "...");
     }
 
-    console.log("Sending to n8n:", { webhookUrl, productId, payload: webhookPayload, hasReferenceImages: webhookPayload.hasReferenceImages });
+    console.log("Sending to n8n:", { webhookUrl: webhookUrl?.substring(0, 50) + "...", productId, isEditing: webhookPayload.isEditing, hasReferenceImages: webhookPayload.hasReferenceImages });
 
     if (!webhookUrl) {
       return NextResponse.json(

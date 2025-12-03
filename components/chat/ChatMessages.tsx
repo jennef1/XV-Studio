@@ -17,9 +17,31 @@ interface ChatMessagesProps {
   messages: Message[];
   onImageSelection?: (selectedUrls: string[]) => void;
   onProductSelection?: (productId: string) => void;
+  onCampaignTypeSelection?: (type: "product" | "concept") => void;
+  onCampaignImageSelection?: (imageUrl: string) => void;
+  onCampaignGeneratedImageView?: (imageUrl: string) => void;
+  onCampaignImageEdit?: (imageUrl: string, editPrompt: string) => void;
+  campaignState?: {
+    isGenerating?: boolean;
+    isEditingImage?: boolean;
+  };
+  // Bilder workflow handlers
+  onBilderWorkflowSelection?: (workflow: "product" | "combine" | "freebird") => void;
+  onBilderProductImagesConfirm?: (selectedImages: string[]) => void;
 }
 
-export default function ChatMessages({ messages, onImageSelection, onProductSelection }: ChatMessagesProps) {
+export default function ChatMessages({
+  messages,
+  onImageSelection,
+  onProductSelection,
+  onCampaignTypeSelection,
+  onCampaignImageSelection,
+  onCampaignGeneratedImageView,
+  onCampaignImageEdit,
+  campaignState,
+  onBilderWorkflowSelection,
+  onBilderProductImagesConfirm,
+}: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -71,6 +93,13 @@ export default function ChatMessages({ messages, onImageSelection, onProductSele
                 imageUrls={message.imageUrls}
                 onImageSelection={onImageSelection}
                 onProductSelection={onProductSelection}
+                onCampaignTypeSelection={onCampaignTypeSelection}
+                onCampaignImageSelection={onCampaignImageSelection}
+                onCampaignGeneratedImageView={onCampaignGeneratedImageView}
+                onCampaignImageEdit={onCampaignImageEdit}
+                campaignState={campaignState}
+                onBilderWorkflowSelection={onBilderWorkflowSelection}
+                onBilderProductImagesConfirm={onBilderProductImagesConfirm}
               />
             );
           })}

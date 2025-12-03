@@ -44,18 +44,25 @@ interface ConversationState {
     isEditingImage: boolean;
     editingImageIndex: number | null;
   };
+  // Bilder workflow state
+  bilderWorkflowState?: {
+    workflow: "product" | "combine" | "freebird" | null;
+    selectedProduct: any | null;
+    selectedProductImages: string[];
+  };
 }
 
 interface ChatContainerProps {
   selectedProductId: number | null;
   onPreviewUpdate?: (imageUrl: string | null) => void;
   onGenerationParamsUpdate?: (params: any) => void;
+  onCampaignImageEditRequest?: (imageUrl: string, editPrompt: string) => void;
 }
 
 const PRODUCT_CONFIGS: Record<number, { name: string; greeting: string }> = {
   0: {
     name: "Bilder",
-    greeting: "Hallo! Ich helfe dir dabei, grossartige Bilder für dein Geschäft zu erstellen.\n\nDu hast drei Möglichkeiten:\n\n1. **Lasse der KI freien Lauf**: Beschreibe einfach, was für ein Bild du erstellen möchtest\n2. **Kombiniere mehrere Bilder zu einem**: Lade mehrere Bilder hoch und erstelle ein neues, kreatives Bild\n3. **Füge Referenzbilder oder Bilder deiner Produkte dazu**: Wähle ein Produkt aus deinem Katalog oder lade eigene Referenzbilder hoch\n\nWie möchtest du vorgehen?",
+    greeting: "Hallo! Ich helfe dir dabei, grossartige Marketingbilder für dein Geschäft zu erstellen.\n\nWähle aus, wie du vorgehen möchtest:\n\n[BILDER_WORKFLOW_SELECTOR]",
   },
   1: {
     name: "Social Media Paket",
@@ -67,7 +74,7 @@ const PRODUCT_CONFIGS: Record<number, { name: string; greeting: string }> = {
   },
 };
 
-export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGenerationParamsUpdate }: ChatContainerProps) {
+export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGenerationParamsUpdate, onCampaignImageEditRequest }: ChatContainerProps) {
   // Store conversation history for each product (session-only, in-memory)
   const conversationHistoryRef = useRef<Map<number, ConversationState>>(new Map());
   const initializedProductRef = useRef<number | null>(null);
@@ -89,6 +96,11 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
       isGenerating: false,
       isEditingImage: false,
       editingImageIndex: null,
+    },
+    bilderWorkflowState: {
+      workflow: null,
+      selectedProduct: null,
+      selectedProductImages: [],
     },
   });
 
@@ -120,11 +132,11 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         // Initialize new conversation
         const config = PRODUCT_CONFIGS[selectedProductId];
         if (config) {
-          // For Product Video and Bilder, fetch and embed products in greeting
-          if (selectedProductId === 2 || selectedProductId === 0) {
+          // For Product Video, fetch and embed products in greeting
+          if (selectedProductId === 2) {
             initializeWithProducts(config.greeting, selectedProductId);
           } else {
-            // Other products - just show greeting
+            // Other products (including Bilder) - just show greeting
             const newState: ConversationState = {
               messages: [
                 {
@@ -148,6 +160,11 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
                 isGenerating: false,
                 isEditingImage: false,
                 editingImageIndex: null,
+              },
+              bilderWorkflowState: {
+                workflow: null,
+                selectedProduct: null,
+                selectedProductImages: [],
               },
             };
             setCurrentState(newState);
@@ -179,6 +196,11 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
           isGenerating: false,
           isEditingImage: false,
           editingImageIndex: null,
+        },
+        bilderWorkflowState: {
+          workflow: null,
+          selectedProduct: null,
+          selectedProductImages: [],
         },
       });
       onPreviewUpdate?.(null);
@@ -261,6 +283,11 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
           isEditingImage: false,
           editingImageIndex: null,
         },
+        bilderWorkflowState: {
+          workflow: null,
+          selectedProduct: null,
+          selectedProductImages: [],
+        },
       };
 
       setCurrentState(newState);
@@ -294,6 +321,11 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
           isEditingImage: false,
           editingImageIndex: null,
         },
+        bilderWorkflowState: {
+          workflow: null,
+          selectedProduct: null,
+          selectedProductImages: [],
+        },
       };
 
       setCurrentState(newState);
@@ -323,6 +355,131 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         await handleCampaignGeneration(content.trim());
         return;
       }
+    }
+
+    // Handle Bilder product workflow - direct generation with standard settings
+    if (
+      selectedProductId === 0 &&
+      currentState.bilderWorkflowState?.workflow === "product" &&
+      currentState.bilderWorkflowState?.selectedProductImages?.length > 0 &&
+      content.trim() &&
+      !currentState.isComplete
+    ) {
+      setIsLoading(true);
+
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        role: "user",
+        content: content.trim(),
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+
+      setCurrentState((prev) => ({
+        ...prev,
+        messages: [...prev.messages, userMessage],
+      }));
+
+      // Add processing message
+      setCurrentState((prev) => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "Perfekt! Ich erstelle jetzt dein Marketingbild mit deinen Produktbildern als Referenz. Dies kann bis zu 3 Minuten dauern...",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+
+      // Use standard settings for product-based workflow
+      const payload = {
+        productId: 0,
+        prompt: content.trim(),
+        aspectRatio: "16:9", // Standard setting
+        resolution: "2K", // Standard setting
+        outputFormat: "jpg", // Standard setting
+        hasReferenceImages: true,
+        imageUrls: currentState.bilderWorkflowState.selectedProductImages,
+      };
+
+      try {
+        const response = await fetch("/api/webhook", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error("Image generation request failed");
+        }
+
+        const result = await response.json();
+
+        if (result.imageUrl) {
+          // Update preview with generated image
+          onPreviewUpdate?.(result.imageUrl);
+
+          // Store generation params for potential refinement
+          onGenerationParamsUpdate?.({
+            prompt: content.trim(),
+            aspectRatio: "16:9",
+            resolution: "2K",
+            outputFormat: "jpg",
+            hasReferenceImages: true,
+            imageUrls: currentState.bilderWorkflowState.selectedProductImages,
+          });
+
+          setCurrentState((prev) => ({
+            ...prev,
+            currentImageUrl: result.imageUrl,
+            isRefining: true, // Enable refinement mode
+            originalImageSettings: {
+              aspectRatio: "16:9",
+              resolution: "2K",
+              outputFormat: "jpg",
+            },
+            lastGenerationParams: {
+              prompt: content.trim(),
+              aspectRatio: "16:9",
+              resolution: "2K",
+              outputFormat: "jpg",
+              hasReferenceImages: true,
+              imageUrls: currentState.bilderWorkflowState.selectedProductImages,
+            },
+            messages: [
+              ...prev.messages,
+              {
+                id: Date.now().toString(),
+                role: "assistant",
+                content: "Dein Marketingbild ist fertig! Schau es dir im Vorschau-Bereich an. Möchtest du Änderungen vornehmen? Beschreibe einfach, was ich anpassen soll.",
+                timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              },
+            ],
+          }));
+        }
+      } catch (error: any) {
+        console.error("Error generating image:", error);
+        setCurrentState((prev) => ({
+          ...prev,
+          messages: [
+            ...prev.messages,
+            {
+              id: Date.now().toString(),
+              role: "assistant",
+              content: `Es gab einen Fehler bei der Bildgenerierung: ${error.message}`,
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              status: "error" as const,
+            },
+          ],
+        }));
+      } finally {
+        setIsLoading(false);
+      }
+      return;
     }
 
     // Handle refinement mode for Bilder
@@ -364,6 +521,9 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         resolution: currentState.originalImageSettings.resolution || "2K",
         outputFormat: currentState.originalImageSettings.outputFormat || "jpg",
       };
+
+      console.log("🔧 Sending refinement request with payload:", refinementPayload);
+      console.log("🔧 isEditing flag:", refinementPayload.isEditing);
 
       try {
         const response = await fetch("/api/webhook", {
@@ -1227,8 +1387,13 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
   const handleProductSelection = async (productId: string) => {
     // Route to appropriate handler based on selected product type
     if (selectedProductId === 0) {
-      // Bilder flow - show product images for selection
-      await displayProductImagesForBilder(productId);
+      // Check if we're in the new Bilder workflow mode
+      if (currentState.bilderWorkflowState?.workflow === "product") {
+        await handleBilderProductSelection(productId);
+      } else {
+        // Old Bilder flow - show product images for selection
+        await displayProductImagesForBilder(productId);
+      }
     } else if (selectedProductId === 2) {
       // Product Video flow - show video concepts
       await displayVideoConceptsForProduct(productId);
@@ -1464,13 +1629,20 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
 
         const statusData = await statusResponse.json();
         console.log(`[Polling ${attempts}] Full response:`, statusData);
+        console.log(`[Polling ${attempts}] Job object:`, statusData.job);
+        console.log(`[Polling ${attempts}] Images field:`, statusData.job?.images);
+        console.log(`[Polling ${attempts}] Images type:`, typeof statusData.job?.images);
+        console.log(`[Polling ${attempts}] Images isArray:`, Array.isArray(statusData.job?.images));
 
         const { status, images, errorMessage } = statusData.job;
 
         console.log(`[Polling ${attempts}] Status: ${status}, Images: ${images?.length || 0}, Error: ${errorMessage || 'none'}`);
+        console.log(`[Polling ${attempts}] Extracted images:`, images);
 
         if (status === "completed") {
+          console.log(`[Polling ${attempts}] Status is completed. Images:`, images);
           if (!images || images.length === 0) {
+            console.error(`[Polling ${attempts}] No images found! Images value:`, images);
             throw new Error("Keine Bilder generiert");
           }
 
@@ -1490,7 +1662,7 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
               {
                 id: Date.now().toString(),
                 role: "assistant",
-                content: `Deine Kampagnenbilder sind fertig! Ich habe ${images.length} Varianten für dich erstellt.\n\n[CAMPAIGN_GENERATED_IMAGES:${JSON.stringify(images)}]\n\nAlle Bilder wurden automatisch in deiner Galerie gespeichert. Du kannst jedes Bild bearbeiten, indem du darauf klickst.`,
+                content: `Deine Kampagnenbilder sind fertig! Ich habe ${images.length} Varianten für dich erstellt.\n\n[CAMPAIGN_GENERATED_IMAGES:${JSON.stringify(images)}]\n\nKlicke auf ein Bild um es in der Vorschau zu öffnen. Dort kannst du es speichern, herunterladen oder mit einem Text-Prompt bearbeiten.`,
                 timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
               },
             ],
@@ -1583,6 +1755,18 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
       // Auto-save the edited image to gallery
       await saveImagesToGallery([result.imageUrl], `${currentState.campaignState?.selectedProduct?.product_name} (Bearbeitet)`);
 
+      // Update preview with the new edited image
+      onPreviewUpdate?.(result.imageUrl);
+
+      // Update generation params to maintain campaign edit capability
+      onGenerationParamsUpdate?.({
+        isCampaignImage: true,
+        imageUrl: result.imageUrl,
+        onEdit: (editPrompt: string) => {
+          handleCampaignImageEdit(result.imageUrl, editPrompt);
+        },
+      });
+
       // Update state with new image
       setCurrentState(prev => ({
         ...prev,
@@ -1606,6 +1790,146 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
       }));
       // Error will be shown by the GeneratedImagesDisplay component
     }
+  };
+
+  const handleViewGeneratedCampaignImage = (imageUrl: string) => {
+    // Send the selected image to the preview panel
+    onPreviewUpdate?.(imageUrl);
+
+    // Send campaign edit handler info to preview panel via generation params
+    onGenerationParamsUpdate?.({
+      isCampaignImage: true,
+      imageUrl,
+      onEdit: (editPrompt: string) => {
+        handleCampaignImageEdit(imageUrl, editPrompt);
+      },
+    });
+
+    // Store the image URL and enable edit mode for this campaign image
+    setCurrentState(prev => ({
+      ...prev,
+      campaignState: {
+        ...prev.campaignState!,
+        // We can use editingImageIndex to track which generated image is being viewed
+        editingImageIndex: prev.campaignState?.generatedImages.findIndex(img => img === imageUrl) ?? -1,
+      },
+    }));
+  };
+
+  const handleBilderWorkflowSelection = async (workflow: "product" | "combine" | "freebird") => {
+    setCurrentState(prev => ({
+      ...prev,
+      bilderWorkflowState: {
+        ...prev.bilderWorkflowState!,
+        workflow,
+      },
+    }));
+
+    if (workflow === "product") {
+      // Show product selector
+      setCurrentState(prev => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "Perfekt! Wähle ein Produkt aus deinem Katalog:\n\n[BILDER_PRODUCT_SELECTOR]",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+    } else if (workflow === "combine") {
+      // Ask user to upload images
+      setCurrentState(prev => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "Super! Lade mehrere Bilder hoch (max. 5), die du kombinieren möchtest. Beschreibe dann, was für ein Bild daraus entstehen soll.",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+    } else if (workflow === "freebird") {
+      // Ask for prompt directly
+      setCurrentState(prev => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "Los geht's! Beschreibe einfach, was für ein Bild du erstellen möchtest. Ich kümmere mich um den Rest.",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+    }
+  };
+
+  const handleBilderProductSelection = async (productId: string) => {
+    // Get the product details
+    try {
+      const { data: { user } } = await supabaseBrowserClient.auth.getUser();
+      if (!user) return;
+
+      const { data: product } = await supabaseBrowserClient
+        .from("business_products")
+        .select("*")
+        .eq("id", productId)
+        .single();
+
+      if (!product) return;
+
+      setCurrentState(prev => ({
+        ...prev,
+        bilderWorkflowState: {
+          ...prev.bilderWorkflowState!,
+          selectedProduct: product,
+        },
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `Großartig! Du hast "${product.product_name}" ausgewählt.\n\nWähle jetzt die Produktbilder aus, die als Referenz dienen sollen:\n\n[BILDER_PRODUCT_IMAGES:${JSON.stringify({
+              images: product.product_images || [],
+              productName: product.product_name,
+            })}]`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+    } catch (error) {
+      console.error("Error selecting product:", error);
+    }
+  };
+
+  const handleBilderProductImagesConfirm = (selectedImages: string[]) => {
+    setCurrentState(prev => ({
+      ...prev,
+      bilderWorkflowState: {
+        ...prev.bilderWorkflowState!,
+        selectedProductImages: selectedImages,
+      },
+      lastGenerationParams: {
+        prompt: prev.lastGenerationParams?.prompt || "",
+        ...prev.lastGenerationParams,
+        productImages: selectedImages,
+      },
+      messages: [
+        ...prev.messages,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: `Perfect! Ich habe ${selectedImages.length} Produktbild${selectedImages.length > 1 ? 'er' : ''} ausgewählt.\n\nJetzt beschreibe, was für ein Marketingbild du erstellen möchtest. Ich werde deine Produktbilder als Referenz verwenden.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ],
+    }));
   };
 
   const saveImagesToGallery = async (imageUrls: string[], productName: string) => {
@@ -1639,6 +1963,7 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         onProductSelection={selectedProductId === 0 || selectedProductId === 1 || selectedProductId === 2 ? handleProductSelection : undefined}
         onCampaignTypeSelection={selectedProductId === 1 ? handleCampaignTypeSelection : undefined}
         onCampaignImageSelection={selectedProductId === 1 ? handleCampaignImageSelection : undefined}
+        onCampaignGeneratedImageView={selectedProductId === 1 ? handleViewGeneratedCampaignImage : undefined}
         onCampaignImageEdit={selectedProductId === 1 ? handleCampaignImageEdit : undefined}
         campaignState={
           selectedProductId === 1
@@ -1648,6 +1973,8 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
               }
             : undefined
         }
+        onBilderWorkflowSelection={selectedProductId === 0 ? handleBilderWorkflowSelection : undefined}
+        onBilderProductImagesConfirm={selectedProductId === 0 ? handleBilderProductImagesConfirm : undefined}
       />
       <ChatInput onSendMessage={handleSendMessage} disabled={isLoading || (currentState.isComplete && !currentState.isRefining)} />
     </div>

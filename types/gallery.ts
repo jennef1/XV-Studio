@@ -18,6 +18,10 @@ export interface GenerationParams {
   outputFormat?: string;
   hasReferenceImages?: boolean;
   imageUrls?: string[];
+  // Campaign-specific properties
+  isCampaignImage?: boolean;
+  imageUrl?: string;
+  onEdit?: (editPrompt: string) => void | Promise<void>;
 }
 
 export interface FilterOptions {
