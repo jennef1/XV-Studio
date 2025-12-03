@@ -36,19 +36,29 @@ export async function GET(
       );
     }
 
-    console.log(`[Campaign Status] Job ${jobId} status: ${job.status}, images: ${job.result_images?.length || 0}`);
+    // Type assertion to help TypeScript
+    const jobData = job as {
+      id: string;
+      status: string;
+      result_images: string[] | null;
+      error_message: string | null;
+      created_at: string;
+      updated_at: string;
+    };
+
+    console.log(`[Campaign Status] Job ${jobId} status: ${jobData.status}, images: ${jobData.result_images?.length || 0}`);
 
     // Return job status with cache control headers
     return NextResponse.json(
       {
         success: true,
         job: {
-          id: job.id,
-          status: job.status,
-          images: job.result_images,
-          errorMessage: job.error_message,
-          createdAt: job.created_at,
-          updatedAt: job.updated_at,
+          id: jobData.id,
+          status: jobData.status,
+          images: jobData.result_images,
+          errorMessage: jobData.error_message,
+          createdAt: jobData.created_at,
+          updatedAt: jobData.updated_at,
         },
       },
       {
