@@ -40,7 +40,7 @@ export default function ProductImagesMultiSelector({
     <div className="my-4 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl p-6">
       <div className="mb-4">
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-          Wähle Bilder von "{productName}"
+          Wähle Bilder von &ldquo;{productName}&rdquo;
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400">
           Wähle bis zu 5 Produktbilder aus, die als Referenz dienen sollen
