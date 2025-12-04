@@ -358,6 +358,15 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
     }
 
     // Handle Bilder product workflow - direct generation with standard settings
+    console.log("[BILDER DEBUG] Checking shortcut condition:", {
+      selectedProductId,
+      workflow: currentState.bilderWorkflowState?.workflow,
+      hasSelectedImages: currentState.bilderWorkflowState?.selectedProductImages?.length > 0,
+      selectedImagesCount: currentState.bilderWorkflowState?.selectedProductImages?.length,
+      hasContent: !!content.trim(),
+      isComplete: currentState.isComplete,
+    });
+
     if (
       selectedProductId === 0 &&
       currentState.bilderWorkflowState?.workflow === "product" &&
@@ -365,6 +374,9 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
       content.trim() &&
       !currentState.isComplete
     ) {
+      console.log("[BILDER DEBUG] ✅ Shortcut triggered! Bypassing AI, using standard settings");
+      console.log("[BILDER DEBUG] Selected images to send:", currentState.bilderWorkflowState.selectedProductImages);
+
       setIsLoading(true);
 
       const userMessage: Message = {
@@ -667,6 +679,12 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
       messages: [...prev.messages, assistantMessage],
     }));
 
+    console.log("[BILDER DEBUG] ❌ Fell through to AI assistant. State:", {
+      selectedProductId,
+      workflow: currentState.bilderWorkflowState?.workflow,
+      selectedImages: currentState.bilderWorkflowState?.selectedProductImages,
+    });
+
     try {
       const conversation = [...currentState.messages, userMessage].map((msg, index) => {
         // Include image URLs in the message content for the AI to know about them
@@ -679,6 +697,12 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         const isLastUserMessage = index === [...currentState.messages, userMessage].length - 1 && msg.role === 'user';
         if (selectedProductId === 2 && isLastUserMessage && currentState.lastGenerationParams?.productImages && currentState.lastGenerationParams.productImages.length > 0) {
           messageContent += `\n\n[Produktbilder: ${currentState.lastGenerationParams.productImages.join(', ')}]`;
+        }
+
+        // For Bilder Product Workflow: If user selected product images, inject them for AI to use
+        if (selectedProductId === 0 && isLastUserMessage && currentState.bilderWorkflowState?.workflow === "product" && currentState.bilderWorkflowState?.selectedProductImages && currentState.bilderWorkflowState.selectedProductImages.length > 0) {
+          messageContent += `\n\n[Hochgeladene Bilder: ${currentState.bilderWorkflowState.selectedProductImages.join(', ')}]`;
+          console.log("[BILDER DEBUG] Injecting selected product images into AI conversation:", currentState.bilderWorkflowState.selectedProductImages);
         }
 
         return {
