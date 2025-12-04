@@ -20,6 +20,7 @@ export async function GET(
     }
 
     console.log(`[Campaign Status] Polling for job: ${jobId}`);
+    console.log(`[Campaign Status] Job ID type: ${typeof jobId}, length: ${jobId.length}`);
 
     // Fetch job status
     const { data: job, error: fetchError } = await supabaseAdminClient
@@ -28,10 +29,27 @@ export async function GET(
       .eq("id", jobId)
       .single();
 
-    if (fetchError || !job) {
-      console.error("Job not found:", jobId, fetchError);
+    if (fetchError) {
+      console.error("[Campaign Status] Supabase error:", {
+        code: fetchError.code,
+        message: fetchError.message,
+        details: fetchError.details,
+        hint: fetchError.hint,
+      });
       return NextResponse.json(
-        { error: "Job nicht gefunden" },
+        {
+          error: "Job nicht gefunden",
+          details: fetchError.message,
+          code: fetchError.code,
+        },
+        { status: 404 }
+      );
+    }
+
+    if (!job) {
+      console.error("[Campaign Status] Job not found in database:", jobId);
+      return NextResponse.json(
+        { error: "Job nicht gefunden - keine Daten zurückgegeben" },
         { status: 404 }
       );
     }

@@ -93,7 +93,12 @@ export async function POST(request: NextRequest) {
     };
 
     const jobId = typedJobData.id;
-    console.log("Created job:", jobId);
+    console.log("✅ Created job successfully!");
+    console.log("- Job ID:", jobId);
+    console.log("- Job ID type:", typeof jobId);
+    console.log("- Job ID length:", jobId.length);
+    console.log("- Job type:", typedJobData.job_type);
+    console.log("- Initial status:", typedJobData.status);
 
     // Prepare data for POST request to n8n
     const payload = {

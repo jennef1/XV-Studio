@@ -1655,7 +1655,11 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
       }
 
       const jobId = result.jobId;
-      console.log("Campaign generation started, job ID:", jobId);
+      console.log("✅ Campaign generation started successfully!");
+      console.log("- Job ID received:", jobId);
+      console.log("- Job ID type:", typeof jobId);
+      console.log("- Job ID length:", jobId?.length);
+      console.log("- Will poll URL:", `/api/campaign-status/${jobId}`);
 
       // Update message to show polling started
       setCurrentState(prev => ({
@@ -1688,7 +1692,18 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         });
 
         if (!statusResponse.ok) {
-          throw new Error("Fehler beim Abrufen des Job-Status");
+          const errorData = await statusResponse.json().catch(() => ({}));
+          console.error(`[Polling ${attempts}] Status check failed:`, {
+            status: statusResponse.status,
+            statusText: statusResponse.statusText,
+            errorData,
+            jobId,
+          });
+          throw new Error(
+            `Fehler beim Abrufen des Job-Status (${statusResponse.status}): ${
+              errorData.details || errorData.error || statusResponse.statusText
+            }`
+          );
         }
 
         const statusData = await statusResponse.json();
