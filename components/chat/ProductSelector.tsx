@@ -73,7 +73,7 @@ export default function ProductSelector({ onSelectProduct }: ProductSelectorProp
     <div className="grid grid-cols-2 gap-3 my-4">
       {products.map((product) => {
         const imageUrl = Array.isArray(product.product_images) && product.product_images.length > 0
-          ? product.product_images[0]
+          ? (product.product_images[0] as string)
           : null;
 
         return (

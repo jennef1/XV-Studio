@@ -14,6 +14,10 @@ interface ImageDetailModalProps {
 }
 
 export default function ImageDetailModal({ project, onClose, onDelete, onToggleFavorite }: ImageDetailModalProps) {
+  // For videos (product_type: 2), use video_url; otherwise use image_url
+  const isVideo = project.product_type === 2;
+  const mediaUrl = isVideo && project.video_url ? project.video_url : project.image_url;
+
   // Prevent body scroll when modal is open
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -42,11 +46,12 @@ export default function ImageDetailModal({ project, onClose, onDelete, onToggleF
 
   // Handle download
   const handleDownload = async () => {
+    const extension = isVideo ? 'mp4' : 'jpg';
     const fileName = project.project_name
-      ? `${project.project_name}.jpg`
-      : `projekt-${formatDate(project.created_at)}.jpg`;
+      ? `${project.project_name}.${extension}`
+      : `projekt-${formatDate(project.created_at)}.${extension}`;
 
-    const result = await downloadImage(project.image_url, fileName);
+    const result = await downloadImage(mediaUrl, fileName);
 
     if (!result.success) {
       alert(`Download fehlgeschlagen: ${result.error}`);
@@ -78,7 +83,7 @@ export default function ImageDetailModal({ project, onClose, onDelete, onToggleF
         await navigator.share({
           title: project.project_name || "Mein Projekt",
           text: `Schau dir mein Projekt an: ${project.project_name || "Unbenanntes Projekt"}`,
-          url: project.image_url,
+          url: mediaUrl,
         });
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
@@ -92,7 +97,7 @@ export default function ImageDetailModal({ project, onClose, onDelete, onToggleF
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(project.image_url);
+    navigator.clipboard.writeText(mediaUrl);
     alert("Link in die Zwischenablage kopiert!");
   };
 
@@ -115,17 +120,28 @@ export default function ImageDetailModal({ project, onClose, onDelete, onToggleF
 
         {/* Two-column layout */}
         <div className="flex flex-col lg:flex-row h-full">
-          {/* Left: Image with dark padding */}
+          {/* Left: Media (Image or Video) with dark padding */}
           <div className="flex-1 relative bg-gray-950 flex items-center justify-center p-4">
             <div className="relative w-full h-full">
-              <Image
-                src={project.image_url}
-                alt={project.project_name || "Project image"}
-                fill
-                className="object-cover rounded-lg"
-                sizes="(max-width: 1024px) 100vw, 65vw"
-                priority
-              />
+              {isVideo ? (
+                <video
+                  src={mediaUrl}
+                  controls
+                  className="w-full h-full object-contain rounded-lg"
+                  playsInline
+                >
+                  Dein Browser unterstützt das Video-Tag nicht.
+                </video>
+              ) : (
+                <Image
+                  src={mediaUrl}
+                  alt={project.project_name || "Project image"}
+                  fill
+                  className="object-cover rounded-lg"
+                  sizes="(max-width: 1024px) 100vw, 65vw"
+                  priority
+                />
+              )}
             </div>
           </div>
 

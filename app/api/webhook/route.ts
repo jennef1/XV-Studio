@@ -116,20 +116,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse the response from n8n to get the image URL
-    const responseData = await response.json();
-    console.log("Webhook response:", responseData);
+    let responseData;
+    const responseText = await response.text();
+    console.log("Raw response text:", responseText);
+
+    try {
+      responseData = JSON.parse(responseText);
+      console.log("Parsed webhook response:", responseData);
+    } catch (parseError) {
+      console.error("Failed to parse webhook response as JSON:", parseError);
+      console.error("Response text was:", responseText);
+      throw new Error(`Invalid JSON response from webhook: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+    }
 
     // Extract image URL from response (handle both array and object formats)
     let imageUrl = null;
     if (Array.isArray(responseData) && responseData.length > 0) {
       imageUrl = responseData[0].imageUrl || responseData[0].image_url || null;
+      console.log("Extracted imageUrl from array:", imageUrl);
     } else if (responseData) {
       imageUrl = responseData.imageUrl || responseData.image_url || null;
+      console.log("Extracted imageUrl from object:", imageUrl);
     }
 
     // Clean up the URL (remove any trailing newlines or whitespace)
     if (imageUrl) {
       imageUrl = imageUrl.trim();
+      console.log("Cleaned imageUrl:", imageUrl);
+    } else {
+      console.warn("⚠️  No imageUrl found in response. Response structure:", JSON.stringify(responseData, null, 2));
     }
 
     return NextResponse.json({

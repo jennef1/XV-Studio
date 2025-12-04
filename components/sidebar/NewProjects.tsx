@@ -1,6 +1,15 @@
 "use client";
 
-const projectTemplates = [
+import { ReactNode } from "react";
+
+interface ProjectTemplate {
+  id: number;
+  name: string;
+  icon: ReactNode;
+  badge?: string;
+}
+
+const projectTemplates: ProjectTemplate[] = [
     {
       id: 0,
       name: "Bilder",

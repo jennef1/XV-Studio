@@ -59,11 +59,12 @@ export async function POST(request: NextRequest) {
 
     // Create a job record in the database
     const { data: jobData, error: jobError } = await supabaseAdminClient
-      .from("campaign_generation_jobs" as any)
+      .from("campaign_generation_jobs")
       .insert({
         user_id: userId,
         business_id: businessId,
         product_id: productId,
+        job_type: "campaign_images",
         status: "processing",
         request_data: {
           product,
@@ -83,7 +84,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const jobId = jobData.id;
+    // Type assertion to help TypeScript
+    const typedJobData = jobData as {
+      id: string;
+      job_type: string;
+      status: string;
+      created_at: string;
+    };
+
+    const jobId = typedJobData.id;
     console.log("Created job:", jobId);
 
     // Prepare data for POST request to n8n
@@ -124,7 +133,7 @@ export async function POST(request: NextRequest) {
       console.error("Error triggering n8n webhook:", error);
       // Update job status to failed
       supabaseAdminClient
-        .from("campaign_generation_jobs" as any)
+        .from("campaign_generation_jobs")
         .update({
           status: "failed",
           error_message: error.message,

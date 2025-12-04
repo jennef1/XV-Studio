@@ -49,6 +49,8 @@ export interface Database {
           tone_of_voice: string[];
           brand_values: string[];
           website_images: string[];
+          target_audience: string | null;
+          unique_selling_points: string[] | null;
         };
         Insert: {
           id?: string;
@@ -63,6 +65,8 @@ export interface Database {
           tone_of_voice?: string[];
           brand_values?: string[];
           website_images?: string[];
+          target_audience?: string | null;
+          unique_selling_points?: string[] | null;
         };
         Update: {
           user_id?: string;
@@ -75,6 +79,8 @@ export interface Database {
           tone_of_voice?: string[];
           brand_values?: string[];
           website_images?: string[];
+          target_audience?: string | null;
+          unique_selling_points?: string[] | null;
         };
         Relationships: [];
       };
@@ -86,6 +92,7 @@ export interface Database {
           product_type: number;
           image_url: string;
           thumbnail_url: string | null;
+          video_url: string | null;
           generation_params: Json | null;
           created_at: string;
           updated_at: string;
@@ -98,6 +105,7 @@ export interface Database {
           product_type: number;
           image_url: string;
           thumbnail_url?: string | null;
+          video_url?: string | null;
           generation_params?: Json | null;
           created_at?: string;
           updated_at?: string;
@@ -108,6 +116,7 @@ export interface Database {
           generation_params?: Json | null;
           updated_at?: string;
           is_favorite?: boolean;
+          video_url?: string | null;
         };
         Relationships: [];
       };
@@ -194,6 +203,49 @@ export interface Database {
             referencedColumns: ["id"];
           },
         ];
+      };
+      campaign_generation_jobs: {
+        Row: {
+          id: string;
+          user_id: string;
+          business_id: string;
+          product_id: string;
+          job_type: "campaign_images" | "product_video";
+          status: "processing" | "completed" | "failed";
+          request_data: Json;
+          result_images: string[] | null;
+          result_video_url: string | null;
+          error_message: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          business_id: string;
+          product_id: string;
+          job_type?: "campaign_images" | "product_video";
+          status?: "processing" | "completed" | "failed";
+          request_data: Json;
+          result_images?: string[] | null;
+          result_video_url?: string | null;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          business_id?: string;
+          product_id?: string;
+          job_type?: "campaign_images" | "product_video";
+          status?: "processing" | "completed" | "failed";
+          request_data?: Json;
+          result_images?: string[] | null;
+          result_video_url?: string | null;
+          error_message?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
     };
     Views: {};

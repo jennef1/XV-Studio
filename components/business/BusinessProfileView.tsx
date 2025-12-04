@@ -62,11 +62,12 @@ export default function BusinessProfileView() {
 
     try {
       // Ensure tone_of_voice is stored as array if it's a string
-      const toneOfVoice = Array.isArray(editedBusiness.tone_of_voice)
-        ? editedBusiness.tone_of_voice
-        : typeof editedBusiness.tone_of_voice === 'string'
-        ? editedBusiness.tone_of_voice.split(',').map(s => s.trim()).filter(s => s)
-        : editedBusiness.tone_of_voice;
+      const toneOfVoiceRaw = editedBusiness.tone_of_voice as string[] | string;
+      const toneOfVoice: string[] = Array.isArray(toneOfVoiceRaw)
+        ? toneOfVoiceRaw
+        : typeof toneOfVoiceRaw === 'string'
+        ? toneOfVoiceRaw.split(',').map(s => s.trim()).filter(s => s)
+        : [];
 
       const { error } = await supabaseBrowserClient
         .from("businesses")
@@ -375,9 +376,9 @@ export default function BusinessProfileView() {
             {/* Business Description */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                   Geschäftsübersicht
-                </label>
+                </h3>
                 {!isEditing && (
                   <span className="text-xs text-gray-500 font-medium">Read-only</span>
                 )}
@@ -396,18 +397,18 @@ export default function BusinessProfileView() {
                   placeholder="Beschreibe dein Unternehmen..."
                 />
               ) : (
-                <div className="w-full px-4 py-4 bg-gray-50 dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-800 rounded-3xl text-gray-700 dark:text-gray-300 leading-relaxed">
+                <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
                   {business.business_description || "Keine Beschreibung vorhanden."}
-                </div>
+                </p>
               )}
             </div>
 
             {/* Brand Colors */}
-            <div className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl p-6">
+            <div>
               <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                   Firmenfarben
-                </label>
+                </h3>
                 {!isEditing && (
                   <span className="text-xs text-gray-500 font-medium">Read-only</span>
                 )}

@@ -17,20 +17,33 @@ export default function GalleryCard({ project, onClick, onToggleFavorite }: Gall
     onToggleFavorite();
   };
 
+  // For videos (product_type: 2), use video_url; otherwise use image_url
+  const isVideo = project.product_type === 2;
+  const mediaUrl = isVideo && project.video_url ? project.video_url : project.image_url;
+
   return (
     <div
       className="group relative bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer"
       onClick={onClick}
     >
-      {/* Image */}
+      {/* Media (Image or Video thumbnail) */}
       <div className="relative aspect-square w-full bg-gray-100 dark:bg-gray-800">
-        <Image
-          src={project.image_url}
-          alt={project.project_name || "Project image"}
-          fill
-          className="object-cover group-hover:scale-105 transition-transform duration-300"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-        />
+        {isVideo ? (
+          <video
+            src={mediaUrl}
+            className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
+            muted
+            playsInline
+          />
+        ) : (
+          <Image
+            src={mediaUrl}
+            alt={project.project_name || "Project image"}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+        )}
 
         {/* Favorite button */}
         <button

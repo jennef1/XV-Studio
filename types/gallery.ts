@@ -5,6 +5,7 @@ export interface SavedProject {
   product_type: number; // 0=Bilder, 1=Social Media, 2=Video, 3=Logo
   image_url: string;
   thumbnail_url: string | null;
+  video_url: string | null;
   generation_params: GenerationParams | null;
   created_at: string;
   updated_at: string;
@@ -35,6 +36,7 @@ export interface SaveProjectData {
   product_type: number;
   image_url: string;
   thumbnail_url?: string | null;
+  video_url?: string | null;
   generation_params?: GenerationParams | null;
 }
 

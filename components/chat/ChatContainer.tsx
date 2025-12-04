@@ -401,7 +401,7 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         resolution: "2K", // Standard setting
         outputFormat: "jpg", // Standard setting
         hasReferenceImages: true,
-        imageUrls: currentState.bilderWorkflowState.selectedProductImages,
+        imageUrls: currentState.bilderWorkflowState!.selectedProductImages,
       };
 
       try {
@@ -430,7 +430,7 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
             resolution: "2K",
             outputFormat: "jpg",
             hasReferenceImages: true,
-            imageUrls: currentState.bilderWorkflowState.selectedProductImages,
+            imageUrls: currentState.bilderWorkflowState!.selectedProductImages,
           });
 
           setCurrentState((prev) => ({
@@ -448,7 +448,7 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
               resolution: "2K",
               outputFormat: "jpg",
               hasReferenceImages: true,
-              imageUrls: currentState.bilderWorkflowState.selectedProductImages,
+              imageUrls: currentState.bilderWorkflowState!.selectedProductImages,
             },
             messages: [
               ...prev.messages,
@@ -1110,7 +1110,7 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
           {
             id: Date.now().toString(),
             role: "assistant",
-            content: "Erstelle dein Video... Dies kann bis zu 5 Minuten dauern.",
+            content: "Starte Video-Erstellung... Dies kann bis zu 5 Minuten dauern.",
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           },
         ],
@@ -1129,7 +1129,6 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         throw new Error("Kein Business gefunden");
       }
 
-      // Call video generation webhook
       // Use selected images from state, or fall back to payload images
       const imagesToUse = currentState.selectedVideoImages && currentState.selectedVideoImages.length > 0
         ? currentState.selectedVideoImages
@@ -1138,17 +1137,19 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
       // Get product_id from state (stored during URL analysis)
       const productId = (currentState.lastGenerationParams as any)?.productId || payload.product_id || null;
 
-      // Build query parameters for GET request
-      const params = new URLSearchParams({
-        user_id: userData.user.id,
-        business_id: business.id,
-        product_id: productId || '',
-        prompt: payload.prompt,
-        images: JSON.stringify(imagesToUse),
-      });
-
-      const response = await fetch(`/api/webhook/video-generation?${params.toString()}`, {
-        method: "GET",
+      // Call video generation webhook to start the job
+      const response = await fetch("/api/webhook/video-generation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: userData.user.id,
+          businessId: business.id,
+          productId: productId || "",
+          prompt: payload.prompt,
+          images: imagesToUse,
+        }),
       });
 
       if (!response.ok) {
@@ -1158,50 +1159,89 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
 
       const result = await response.json();
 
-      // Show video in preview
-      if (result.videoUrl) {
-        onPreviewUpdate?.(result.videoUrl);
-
-        // Save video to gallery
-        try {
-          const { saveProject } = await import("@/lib/gallery/galleryService");
-          const saveResult = await saveProject({
-            product_type: 2, // Product/Service Video
-            image_url: result.videoUrl,
-            project_name: `Product Video - ${new Date().toLocaleDateString()}`,
-            generation_params: {
-              prompt: payload.prompt,
-              product_id: productId,
-              images_count: imagesToUse.length,
-            } as any,
-          });
-
-          if (saveResult.success) {
-            console.log("Video saved to gallery successfully");
-          } else {
-            console.error("Failed to save video:", saveResult.error);
-          }
-        } catch (saveError) {
-          console.error("Failed to save video to gallery:", saveError);
-          // Don't fail the whole process if saving fails
-        }
+      if (!result.jobId) {
+        throw new Error("Keine Job-ID erhalten");
       }
 
-      // Mark conversation as complete
-      setCurrentState((prev) => ({
+      const jobId = result.jobId;
+      console.log("Video generation started, job ID:", jobId);
+
+      // Update message to show polling started
+      setCurrentState(prev => ({
         ...prev,
-        isComplete: true,
-        currentImageUrl: result.videoUrl,
         messages: [
-          ...prev.messages,
+          ...prev.messages.slice(0, -1), // Remove the "Starte..." message
           {
             id: Date.now().toString(),
             role: "assistant",
-            content: "Dein Video wurde erfolgreich erstellt! Du kannst es jetzt in der Vorschau sehen und findest es auch in 'Meine Gespeicherten Projekte'.",
+            content: "Video-Erstellung läuft... Ich überprüfe alle paar Sekunden den Status.",
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           },
         ],
       }));
+
+      // Poll for job completion
+      const maxPollingAttempts = 120; // 120 * 5 seconds = 10 minutes max
+      let attempts = 0;
+
+      const pollStatus = async (): Promise<void> => {
+        if (attempts >= maxPollingAttempts) {
+          throw new Error("Video-Erstellung hat zu lange gedauert (über 10 Minuten)");
+        }
+
+        attempts++;
+
+        // Add cache busting to prevent cached responses
+        const statusResponse = await fetch(`/api/campaign-status/${jobId}?t=${Date.now()}`, {
+          cache: 'no-store',
+        });
+
+        if (!statusResponse.ok) {
+          throw new Error("Fehler beim Abrufen des Job-Status");
+        }
+
+        const statusData = await statusResponse.json();
+        console.log(`[Video Polling ${attempts}] Status: ${statusData.job?.status}, VideoUrl: ${statusData.job?.videoUrl ? 'present' : 'null'}`);
+
+        const { status, videoUrl, errorMessage } = statusData.job;
+
+        if (status === "completed") {
+          console.log(`[Video Polling ${attempts}] Completed! Video URL:`, videoUrl);
+          if (!videoUrl) {
+            console.error(`[Video Polling ${attempts}] No video URL found!`);
+            throw new Error("Keine Video-URL erhalten");
+          }
+
+          // Show video in preview
+          onPreviewUpdate?.(videoUrl);
+
+          // Mark conversation as complete
+          setCurrentState((prev) => ({
+            ...prev,
+            isComplete: true,
+            currentImageUrl: videoUrl,
+            messages: [
+              ...prev.messages.slice(0, -1), // Remove the "läuft..." message
+              {
+                id: Date.now().toString(),
+                role: "assistant",
+                content: "Dein Video wurde erfolgreich erstellt! Du kannst es jetzt in der Vorschau sehen.",
+                timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              },
+            ],
+          }));
+
+          return; // Done!
+        } else if (status === "failed") {
+          throw new Error(errorMessage || "Video-Erstellung fehlgeschlagen");
+        } else {
+          // Still processing, wait and poll again
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+          return pollStatus();
+        }
+      };
+
+      await pollStatus();
 
     } catch (error: any) {
       console.error("Error in handleVideoGeneration:", error);

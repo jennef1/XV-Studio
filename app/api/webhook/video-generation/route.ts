@@ -1,36 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdminClient } from "@/lib/supabaseAdmin";
 
-// Force dynamic rendering for this API route
-export const dynamic = 'force-dynamic';
-
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    // Extract query parameters
-    const searchParams = request.nextUrl.searchParams;
-    const user_id = searchParams.get('user_id');
-    const business_id = searchParams.get('business_id');
-    const product_id = searchParams.get('product_id') || null;
-    const prompt = searchParams.get('prompt');
-    const imagesParam = searchParams.get('images');
-
-    // Parse images array
-    let images: string[] = [];
-    if (imagesParam) {
-      try {
-        images = JSON.parse(imagesParam);
-      } catch (e) {
-        return NextResponse.json(
-          { error: "Ungültiges images-Format" },
-          { status: 400 }
-        );
-      }
-    }
+    const body = await request.json();
+    const {
+      userId,
+      businessId,
+      productId,
+      prompt,
+      images
+    } = body;
 
     // Validate required fields
-    if (!user_id || !business_id || !prompt) {
+    if (!userId || !businessId || !prompt) {
       return NextResponse.json(
         {
-          error: "Fehlende Daten: user_id, business_id und prompt sind erforderlich"
+          error: "Fehlende Daten: userId, businessId und prompt sind erforderlich"
         },
         { status: 400 }
       );
@@ -62,89 +48,84 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log("Sending video generation request to n8n");
-    console.log("- Product ID:", product_id || "manual");
+    console.log("Creating video generation job");
+    console.log("- Product ID:", productId || "manual");
     console.log("- Images count:", images.length);
     console.log("- Prompt length:", prompt?.length || 0);
 
-    // Build query parameters for n8n webhook (GET request)
-    const n8nParams = new URLSearchParams({
-      user_id: user_id || '',
-      business_id: business_id || '',
-      product_id: product_id || '',
-      prompt: prompt || '',
-      images: JSON.stringify(images),
+    // Create a job record in the database
+    const { data: jobData, error: jobError } = await supabaseAdminClient
+      .from("campaign_generation_jobs")
+      .insert({
+        user_id: userId,
+        business_id: businessId,
+        product_id: productId || "",
+        job_type: "product_video",
+        status: "processing",
+        request_data: {
+          prompt,
+          images,
+        },
+      })
+      .select()
+      .single();
+
+    if (jobError || !jobData) {
+      console.error("Failed to create job:", jobError);
+      return NextResponse.json(
+        { error: "Fehler beim Erstellen des Jobs" },
+        { status: 500 }
+      );
+    }
+
+    const jobId = jobData.id;
+    console.log("Created video generation job:", jobId);
+
+    // Prepare data for n8n webhook
+    const payload = {
+      jobId, // Include jobId so n8n can update the database
+      userId,
+      businessId,
+      productId: productId || "",
+      prompt,
+      images,
+    };
+
+    console.log("=== VIDEO GENERATION WEBHOOK REQUEST DEBUG ===");
+    console.log("Method: POST");
+    console.log("URL:", webhookUrl);
+    console.log("Job ID:", jobId);
+
+    // Trigger n8n webhook asynchronously (don't wait for response)
+    // This prevents timeout issues
+    fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }).catch((error) => {
+      console.error("Error triggering n8n webhook:", error);
+      // Update job status to failed
+      supabaseAdminClient
+        .from("campaign_generation_jobs")
+        .update({
+          status: "failed",
+          error_message: error.message,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", jobId)
+        .then(() => console.log("Job marked as failed"));
     });
 
-    const n8nUrl = `${webhookUrl}?${n8nParams.toString()}`;
-
-    // Create an AbortController with timeout (video generation takes longer)
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 480000); // 480 second (8 minute) timeout
-
-    try {
-      // Forward request to n8n webhook as GET
-      const response = await fetch(n8nUrl, {
-        method: "GET",
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeout);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("n8n video generation webhook error:", response.status, errorText);
-        return NextResponse.json(
-          { error: "Fehler bei der Video-Erstellung. Bitte versuche es erneut." },
-          { status: response.status }
-        );
-      }
-
-      const result = await response.json();
-      console.log("Video generation completed successfully");
-      console.log("n8n response:", JSON.stringify(result, null, 2));
-
-      // Extract video URL from response
-      let videoUrl = null;
-      if (Array.isArray(result)) {
-        console.log("Response is an array, checking first element...");
-        videoUrl = result[0]?.videoUrl || result[0]?.video_url || result[0]?.url || null;
-      } else {
-        console.log("Response is an object, checking for video URL fields...");
-        videoUrl = result.videoUrl || result.video_url || result.url || null;
-      }
-
-      if (!videoUrl) {
-        console.error("No video URL found in response!");
-        console.error("Full response structure:", JSON.stringify(result, null, 2));
-        console.error("Available keys:", Object.keys(result));
-        return NextResponse.json(
-          { error: "Keine Video-URL in der Antwort erhalten" },
-          { status: 500 }
-        );
-      }
-
-      console.log("Successfully extracted video URL:", videoUrl);
-
-      return NextResponse.json({
-        success: true,
-        videoUrl,
-        message: "Video erfolgreich erstellt",
-      });
-
-    } catch (fetchError: any) {
-      clearTimeout(timeout);
-
-      if (fetchError.name === "AbortError") {
-        console.error("Video generation request timed out after 8 minutes");
-        return NextResponse.json(
-          { error: "Die Video-Erstellung hat zu lange gedauert (über 8 Minuten). Bitte versuche es erneut." },
-          { status: 504 }
-        );
-      }
-
-      throw fetchError;
-    }
+    // Return immediately with job ID
+    console.log("Video generation job created and started");
+    return NextResponse.json({
+      success: true,
+      jobId,
+      status: "processing",
+      message: "Video-Erstellung wurde gestartet",
+    });
 
   } catch (error: any) {
     console.error("Error in video-generation webhook:", error);
