@@ -23,8 +23,8 @@ export async function GET(
 
     // Fetch job status
     const { data: job, error: fetchError } = await supabaseAdminClient
-      .from("campaign_generation_jobs" as any)
-      .select("id, status, result_images, error_message, created_at, updated_at")
+      .from("campaign_generation_jobs")
+      .select("id, job_type, status, result_images, result_video_url, error_message, created_at, updated_at")
       .eq("id", jobId)
       .single();
 
@@ -39,14 +39,22 @@ export async function GET(
     // Type assertion to help TypeScript
     const jobData = job as {
       id: string;
+      job_type: "campaign_images" | "product_video";
       status: string;
       result_images: string[] | null;
+      result_video_url: string | null;
       error_message: string | null;
       created_at: string;
       updated_at: string;
     };
 
-    console.log(`[Campaign Status] Job ${jobId} status: ${jobData.status}, images: ${jobData.result_images?.length || 0}`);
+    console.log(`[Campaign Status] Job ${jobId} type: ${jobData.job_type}, status: ${jobData.status}`);
+
+    if (jobData.job_type === "campaign_images") {
+      console.log(`[Campaign Status] Images: ${jobData.result_images?.length || 0}`);
+    } else if (jobData.job_type === "product_video") {
+      console.log(`[Campaign Status] Video URL: ${jobData.result_video_url ? "present" : "null"}`);
+    }
 
     // Return job status with cache control headers
     return NextResponse.json(
@@ -54,8 +62,10 @@ export async function GET(
         success: true,
         job: {
           id: jobData.id,
+          jobType: jobData.job_type,
           status: jobData.status,
           images: jobData.result_images,
+          videoUrl: jobData.result_video_url,
           errorMessage: jobData.error_message,
           createdAt: jobData.created_at,
           updatedAt: jobData.updated_at,
