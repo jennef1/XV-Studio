@@ -71,7 +71,7 @@ export default function StudioPage() {
       setShowGallery(false);
       setShowProducts(false);
     } else if (id === 2) {
-      // Produkte / Services
+      // Angebot
       setShowProducts(true);
       setShowBusinessProfile(false);
       setShowGallery(false);
@@ -102,7 +102,7 @@ export default function StudioPage() {
               <BusinessProfileView />
             </div>
           ) : showProducts ? (
-            // Show products view when Produkte/Services is selected
+            // Show products view when Angebot is selected
             <div className="flex-1">
               <ProductsView />
             </div>
