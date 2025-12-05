@@ -210,7 +210,7 @@ export interface Database {
           user_id: string;
           business_id: string;
           product_id: string;
-          job_type: "campaign_images" | "product_video";
+          job_type: "campaign_images" | "product_video" | "ai_explains_video";
           status: "processing" | "completed" | "failed";
           request_data: Json;
           result_images: string[] | null;
@@ -224,7 +224,7 @@ export interface Database {
           user_id: string;
           business_id: string;
           product_id: string;
-          job_type?: "campaign_images" | "product_video";
+          job_type?: "campaign_images" | "product_video" | "ai_explains_video";
           status?: "processing" | "completed" | "failed";
           request_data: Json;
           result_images?: string[] | null;
@@ -237,7 +237,7 @@ export interface Database {
           user_id?: string;
           business_id?: string;
           product_id?: string;
-          job_type?: "campaign_images" | "product_video";
+          job_type?: "campaign_images" | "product_video" | "ai_explains_video";
           status?: "processing" | "completed" | "failed";
           request_data?: Json;
           result_images?: string[] | null;

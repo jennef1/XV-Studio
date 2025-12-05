@@ -9,6 +9,7 @@ import ProductSelector from "./ProductSelector";
 import ProductImageSelector from "./ProductImageSelector";
 import GeneratedImagesDisplay from "./GeneratedImagesDisplay";
 import BilderWorkflowSelector from "./BilderWorkflowSelector";
+import VideoWorkflowSelector from "./VideoWorkflowSelector";
 import ProductImagesMultiSelector from "./ProductImagesMultiSelector";
 import { Database } from "@/types/database";
 
@@ -33,6 +34,9 @@ interface MessageBubbleProps {
   // Bilder workflow handlers
   onBilderWorkflowSelection?: (workflow: "product" | "combine" | "freebird") => void;
   onBilderProductImagesConfirm?: (selectedImages: string[]) => void;
+  // Video workflow handlers
+  onVideoWorkflowSelection?: (workflow: "social-booster" | "inspirational" | "ai-explains") => void;
+  onAiExplainsImageSelection?: (imageUrl: string) => void;
 }
 
 export default function MessageBubble({
@@ -50,6 +54,8 @@ export default function MessageBubble({
   campaignState,
   onBilderWorkflowSelection,
   onBilderProductImagesConfirm,
+  onVideoWorkflowSelection,
+  onAiExplainsImageSelection,
 }: MessageBubbleProps) {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
 
@@ -301,6 +307,69 @@ export default function MessageBubble({
     };
   };
 
+  const parseVideoWorkflowMarkers = (msg: string): {
+    cleanMessage: string;
+    showVideoWorkflowSelector: boolean;
+    showVideoProductSelector: boolean;
+    aiExplainsImageSelectorData: { images: string[]; productName: string } | null;
+  } => {
+    let cleanMsg = msg;
+    let showVideoWorkflowSelector = false;
+    let showVideoProductSelector = false;
+    let aiExplainsImageSelectorData = null;
+
+    // Check for [VIDEO_WORKFLOW_SELECTOR]
+    if (cleanMsg.includes('[VIDEO_WORKFLOW_SELECTOR]')) {
+      showVideoWorkflowSelector = true;
+      cleanMsg = cleanMsg.replace('[VIDEO_WORKFLOW_SELECTOR]', '').trim();
+    }
+
+    // Check for [VIDEO_PRODUCT_SELECTOR]
+    if (cleanMsg.includes('[VIDEO_PRODUCT_SELECTOR]')) {
+      showVideoProductSelector = true;
+      cleanMsg = cleanMsg.replace('[VIDEO_PRODUCT_SELECTOR]', '').trim();
+    }
+
+    // Check for [AI_EXPLAINS_IMAGE_SELECTOR:{...}]
+    const aiExplainsMarker = '[AI_EXPLAINS_IMAGE_SELECTOR:';
+    const aiExplainsStart = cleanMsg.indexOf(aiExplainsMarker);
+    if (aiExplainsStart !== -1) {
+      let braceCount = 0;
+      let endIndex = -1;
+      let i = aiExplainsStart + aiExplainsMarker.length;
+
+      for (; i < cleanMsg.length; i++) {
+        if (cleanMsg[i] === '{') {
+          braceCount++;
+        } else if (cleanMsg[i] === '}') {
+          braceCount--;
+          if (braceCount === 0) {
+            endIndex = i;
+            break;
+          }
+        }
+      }
+
+      if (endIndex !== -1 && cleanMsg[endIndex + 1] === ']') {
+        const jsonStr = cleanMsg.substring(aiExplainsStart + aiExplainsMarker.length, endIndex + 1);
+        try {
+          aiExplainsImageSelectorData = JSON.parse(jsonStr);
+          const fullMarker = cleanMsg.substring(aiExplainsStart, endIndex + 2);
+          cleanMsg = cleanMsg.replace(fullMarker, '').trim();
+        } catch (error) {
+          console.error("Error parsing AI Explains image selector data:", error, "JSON:", jsonStr);
+        }
+      }
+    }
+
+    return {
+      cleanMessage: cleanMsg,
+      showVideoWorkflowSelector,
+      showVideoProductSelector,
+      aiExplainsImageSelectorData,
+    };
+  };
+
   // Parse both products and images from message
   const { cleanMessage: msgAfterProducts, products } = parseProductSelectionFromMessage(message);
   const { cleanMessage: msgAfterImages, parsedImageUrls } = parseImagesFromMessage(msgAfterProducts);
@@ -312,11 +381,17 @@ export default function MessageBubble({
     campaignGeneratedImages,
   } = parseCampaignMarkers(msgAfterImages);
   const {
-    cleanMessage,
+    cleanMessage: msgAfterBilder,
     showBilderWorkflowSelector,
     showBilderProductSelector,
     bilderProductImagesData,
   } = parseBilderWorkflowMarkers(msgAfterCampaign);
+  const {
+    cleanMessage,
+    showVideoWorkflowSelector,
+    showVideoProductSelector,
+    aiExplainsImageSelectorData,
+  } = parseVideoWorkflowMarkers(msgAfterBilder);
   const allImageUrls = [...(imageUrls || []), ...parsedImageUrls];
 
   // Handle product selection
@@ -488,6 +563,52 @@ export default function MessageBubble({
                 productName={bilderProductImagesData.productName}
                 onConfirmSelection={onBilderProductImagesConfirm}
               />
+            </div>
+          )}
+
+          {/* Display Video workflow selector */}
+          {showVideoWorkflowSelector && !isUser && onVideoWorkflowSelection && (
+            <div className="mt-3">
+              <VideoWorkflowSelector onSelectWorkflow={onVideoWorkflowSelection} />
+            </div>
+          )}
+
+          {/* Display Video product selector */}
+          {showVideoProductSelector && !isUser && onProductSelection && (
+            <div className="mt-3">
+              <ProductSelector onSelectProduct={(product) => onProductSelection(product.id)} />
+            </div>
+          )}
+
+          {/* Display AI Explains image selector (single image selection) */}
+          {aiExplainsImageSelectorData && !isUser && onAiExplainsImageSelection && (
+            <div className="mt-3">
+              <div className="mb-2 text-sm text-gray-700 dark:text-gray-300 font-medium">
+                Wähle ein Bild für dein Video:
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {aiExplainsImageSelectorData.images.map((imageUrl, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.1 * idx }}
+                    className="relative rounded-lg overflow-hidden cursor-pointer border-2 border-transparent hover:border-purple-500 transition-all"
+                    onClick={() => onAiExplainsImageSelection(imageUrl)}
+                  >
+                    <img
+                      src={imageUrl}
+                      alt={`${aiExplainsImageSelectorData.productName} - Bild ${idx + 1}`}
+                      className="w-full h-32 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-opacity flex items-center justify-center">
+                      <div className="opacity-0 hover:opacity-100 transition-opacity bg-purple-600 text-white px-3 py-1 rounded-full text-sm">
+                        Auswählen
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             </div>
           )}
 

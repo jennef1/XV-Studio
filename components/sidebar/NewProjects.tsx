@@ -21,7 +21,7 @@ const projectTemplates: ProjectTemplate[] = [
     },
     {
       id: 2,
-      name: "Produkt / Service Video",
+      name: "Video",
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />

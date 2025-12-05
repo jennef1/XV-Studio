@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import MessageBubble from "./MessageBubble";
 import TypingIndicator from "./TypingIndicator";
+import GeneratingIndicator from "./GeneratingIndicator";
 
 interface Message {
   id: string;
@@ -28,6 +29,13 @@ interface ChatMessagesProps {
   // Bilder workflow handlers
   onBilderWorkflowSelection?: (workflow: "product" | "combine" | "freebird") => void;
   onBilderProductImagesConfirm?: (selectedImages: string[]) => void;
+  // Video workflow handlers
+  onVideoWorkflowSelection?: (workflow: "social-booster" | "inspirational" | "ai-explains") => void;
+  onAiExplainsImageSelection?: (imageUrl: string) => void;
+  // Generation state
+  isGeneratingContent?: boolean;
+  generationType?: "image" | "video";
+  generationMessage?: string;
 }
 
 export default function ChatMessages({
@@ -41,6 +49,11 @@ export default function ChatMessages({
   campaignState,
   onBilderWorkflowSelection,
   onBilderProductImagesConfirm,
+  onVideoWorkflowSelection,
+  onAiExplainsImageSelection,
+  isGeneratingContent,
+  generationType,
+  generationMessage,
 }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -100,9 +113,18 @@ export default function ChatMessages({
                 campaignState={campaignState}
                 onBilderWorkflowSelection={onBilderWorkflowSelection}
                 onBilderProductImagesConfirm={onBilderProductImagesConfirm}
+                onVideoWorkflowSelection={onVideoWorkflowSelection}
+                onAiExplainsImageSelection={onAiExplainsImageSelection}
               />
             );
           })}
+          {/* Show generating indicator when content is being created */}
+          {isGeneratingContent && generationType && (
+            <GeneratingIndicator
+              type={generationType}
+              message={generationMessage}
+            />
+          )}
           <div ref={messagesEndRef} />
         </>
       )}

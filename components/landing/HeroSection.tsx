@@ -6,8 +6,8 @@ interface HeroSectionProps {
 
 export default function HeroSection({ onOpenLogin }: HeroSectionProps) {
   return (
-    <section className="relative min-h-screen w-full bg-white flex items-center justify-center px-6 py-20">
-      <div className="max-w-4xl mx-auto text-center">
+    <section className="relative min-h-screen w-full bg-white flex items-center justify-center px-8 sm:px-12 lg:px-16 py-20">
+      <div className="max-w-6xl mx-auto text-center">
         {/* Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 mb-8">
           <span className="text-sm text-blue-600 font-medium">KI für</span>
@@ -17,15 +17,15 @@ export default function HeroSection({ onOpenLogin }: HeroSectionProps) {
         </div>
 
         {/* Main Headline */}
-        <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight tracking-tight">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-8 leading-relaxed tracking-tight pb-2">
           <div className="text-gray-900 whitespace-nowrap">KI-Marketing für dein KMU</div>
-          <div className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600 whitespace-nowrap">
+          <div className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-600 mt-2 whitespace-nowrap">
             Geführt, schnell & kostengünstig.
           </div>
         </h1>
 
         {/* Subtitle */}
-        <p className="text-lg md:text-xl text-gray-600 mb-12 leading-relaxed max-w-3xl mx-auto">
+        <p className="text-lg md:text-xl text-gray-700 mb-12 leading-loose max-w-3xl mx-auto">
           Unsere KI begleitet dich Schritt für Schritt und erstellt automatisch professionelles Marketingmaterial – ohne technisches Wissen, hohe Kosten oder interne Experten. So gewinnst du Zeit und kannst dich auf das konzentrieren, was du am besten kannst!
         </p>
 

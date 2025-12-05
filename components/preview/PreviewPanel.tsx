@@ -64,6 +64,13 @@ export default function PreviewPanel({ mediaUrl, productType, generationParams }
   // Check if this is a campaign image
   const isCampaignImage = generationParams?.isCampaignImage === true;
 
+  // Monitor mediaUrl changes for debugging
+  useEffect(() => {
+    console.log("📷 [PreviewPanel] mediaUrl changed:", mediaUrl);
+    console.log("📷 [PreviewPanel] isCampaignImage:", isCampaignImage);
+    console.log("📷 [PreviewPanel] generationParams:", generationParams);
+  }, [mediaUrl, isCampaignImage, generationParams]);
+
   const handleDownload = async () => {
     if (!mediaUrl || isDownloading) return;
 
@@ -150,14 +157,31 @@ export default function PreviewPanel({ mediaUrl, productType, generationParams }
   };
 
   const handleEditCampaignImage = async () => {
-    if (!editPrompt.trim() || !generationParams?.onEdit) return;
+    console.log("🖼️ [PreviewPanel] Edit button clicked!");
+    console.log("🖼️ [PreviewPanel] editPrompt:", editPrompt);
+    console.log("🖼️ [PreviewPanel] generationParams:", generationParams);
+    console.log("🖼️ [PreviewPanel] Has onEdit callback?:", !!generationParams?.onEdit);
+    console.log("🖼️ [PreviewPanel] isCampaignImage?:", generationParams?.isCampaignImage);
+
+    if (!editPrompt.trim()) {
+      console.warn("🖼️ [PreviewPanel] No edit prompt provided");
+      return;
+    }
+
+    if (!generationParams?.onEdit) {
+      console.error("🖼️ [PreviewPanel] No onEdit callback found in generationParams!");
+      console.error("🖼️ [PreviewPanel] Current generationParams:", generationParams);
+      return;
+    }
 
     setIsEditingCampaignImage(true);
     try {
+      console.log("🖼️ [PreviewPanel] Calling onEdit callback with prompt:", editPrompt.trim());
       await generationParams.onEdit(editPrompt.trim());
+      console.log("🖼️ [PreviewPanel] onEdit callback completed successfully");
       setEditPrompt("");
     } catch (error) {
-      console.error("Failed to edit campaign image:", error);
+      console.error("🖼️ [PreviewPanel] Failed to edit campaign image:", error);
     } finally {
       setIsEditingCampaignImage(false);
     }
