@@ -50,7 +50,7 @@ export default function StudioPage() {
 
   const handleOnboardingClose = () => {
     setShowOnboarding(false);
-    // Navigate to Firmenprofil section
+    // Navigate to Unternehmensprofil section
     setShowBusinessProfile(true);
     setShowGallery(false);
     setShowProducts(false);
@@ -66,7 +66,7 @@ export default function StudioPage() {
 
   const handleGallerySelect = (id: number) => {
     if (id === 1) {
-      // Firmenprofil
+      // Unternehmensprofil
       setShowBusinessProfile(true);
       setShowGallery(false);
       setShowProducts(false);
@@ -97,7 +97,7 @@ export default function StudioPage() {
         {/* Main content area */}
         <div className="flex-1 flex overflow-hidden">
           {showBusinessProfile ? (
-            // Show business profile view when Firmenprofil is selected
+            // Show business profile view when Unternehmensprofil is selected
             <div className="flex-1">
               <BusinessProfileView />
             </div>
