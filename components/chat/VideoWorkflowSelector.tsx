@@ -24,7 +24,7 @@ export default function VideoWorkflowSelector({ onSelectWorkflow }: VideoWorkflo
               Social Media Boost (8 Sek Video)
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-              Ein kurzes, prägnantes KI-Video, das sofort Aufmerksamkeit zieht – perfekt für Reels, Stories oder Ads. Schnell, klar und genau das, was KMU's heute brauchen.
+              Ein kurzes, prägnantes KI-Video, das sofort Aufmerksamkeit zieht – perfekt für Reels, Stories oder Ads. Schnell, klar und genau das, was KMU&apos;s heute brauchen.
             </p>
           </div>
 
