@@ -8,7 +8,12 @@ import LoadingModal from "@/components/LoadingModal";
 
 type Business = Database["public"]["Tables"]["businesses"]["Row"];
 
-export default function BusinessProfileView() {
+interface BusinessProfileViewProps {
+  onNavigateToProducts?: () => void;
+  onBusinessCreated?: () => void;
+}
+
+export default function BusinessProfileView({ onNavigateToProducts, onBusinessCreated }: BusinessProfileViewProps = {}) {
   const [business, setBusiness] = useState<Business | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -16,6 +21,20 @@ export default function BusinessProfileView() {
   const [businessUrl, setBusinessUrl] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingError, setProcessingError] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [showCompletionMessage, setShowCompletionMessage] = useState(false);
+
+  // Helper function to ensure URL has proper protocol
+  const ensureUrlProtocol = (url: string | null | undefined): string => {
+    if (!url) return '';
+    const trimmedUrl = url.trim();
+    if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+      return trimmedUrl;
+    }
+    return `https://${trimmedUrl}`;
+  };
 
   useEffect(() => {
     fetchBusinessProfile();
@@ -163,11 +182,12 @@ export default function BusinessProfileView() {
 
       if (!user) {
         setProcessingError("Kein Benutzer gefunden");
+        setIsProcessing(false);
         return;
       }
 
-      // Call the business DNA webhook
-      const response = await fetch("/api/webhook/business-website-dna", {
+      // Call the new onboarding webhook
+      const response = await fetch("/api/webhook/business-and-products", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -179,40 +199,148 @@ export default function BusinessProfileView() {
       });
 
       if (!response.ok) {
-        throw new Error("Fehler beim Analysieren der Website");
+        throw new Error("Fehler beim Starten der Analyse");
       }
 
-      // Poll for business profile creation (max 3 minutes, check every 3 seconds)
-      const maxAttempts = 60; // 3 minutes / 3 seconds
-      let attempts = 0;
+      const { jobId: newJobId } = await response.json();
+      setJobId(newJobId);
 
-      const pollInterval = setInterval(async () => {
-        attempts++;
+      // Start polling for job completion
+      pollJobStatus(newJobId, user.id);
 
-        const { data, error } = await supabaseBrowserClient
-          .from("businesses")
-          .select("*")
-          .eq("user_id", user.id)
-          .single();
-
-        if (data && !error) {
-          // Success! Business profile created
-          clearInterval(pollInterval);
-          setBusiness(data);
-          setEditedBusiness(data);
-          setIsProcessing(false);
-          setBusinessUrl("");
-        } else if (attempts >= maxAttempts) {
-          // Timeout
-          clearInterval(pollInterval);
-          setIsProcessing(false);
-          setProcessingError("Zeitüberschreitung beim Erstellen des Profils");
-        }
-      }, 3000);
     } catch (error) {
       console.error("Error creating profile:", error);
       setProcessingError("Ein Fehler ist aufgetreten. Bitte versuche es erneut.");
       setIsProcessing(false);
+    }
+  };
+
+  const pollJobStatus = async (jobId: string, userId: string) => {
+    const maxAttempts = 120; // 10 minutes / 5 seconds = 120 attempts
+    let attempts = 0;
+
+    const checkStatus = async () => {
+      attempts++;
+
+      try {
+        // Poll campaign job status
+        const statusResponse = await fetch(`/api/campaign-status/${jobId}?t=${Date.now()}`, {
+          cache: 'no-store',
+        });
+
+        if (!statusResponse.ok) {
+          console.error("Error polling job status");
+          // Continue polling on error
+          if (attempts < maxAttempts) {
+            setTimeout(checkStatus, 5000);
+          } else {
+            setIsProcessing(false);
+            setProcessingError("Zeitüberschreitung beim Erstellen des Profils");
+          }
+          return;
+        }
+
+        const { job } = await statusResponse.json();
+
+        if (job.status === "completed") {
+          // Job completed - fetch the business profile
+          const { data, error } = await supabaseBrowserClient
+            .from("businesses")
+            .select("*")
+            .eq("user_id", userId)
+            .single();
+
+          if (data && !error) {
+            // Success!
+            setBusiness(data);
+            setEditedBusiness(data);
+            setIsProcessing(false);
+            setBusinessUrl("");
+            setShowCompletionMessage(true);
+
+            // Notify parent that business has been created
+            if (onBusinessCreated) {
+              onBusinessCreated();
+            }
+            return;
+          }
+        } else if (job.status === "failed") {
+          // Job failed
+          setIsProcessing(false);
+          setProcessingError(job.errorMessage || "Ein Fehler ist aufgetreten");
+          return;
+        }
+
+        // Still processing - check if we've exceeded max attempts
+        if (attempts >= maxAttempts) {
+          setIsProcessing(false);
+          setProcessingError("Zeitüberschreitung. Die Analyse dauert länger als erwartet.");
+          return;
+        }
+
+        // Continue polling
+        setTimeout(checkStatus, 5000);
+
+      } catch (error) {
+        console.error("Error checking job status:", error);
+
+        if (attempts >= maxAttempts) {
+          setIsProcessing(false);
+          setProcessingError("Zeitüberschreitung beim Erstellen des Profils");
+        } else {
+          // Retry
+          setTimeout(checkStatus, 5000);
+        }
+      }
+    };
+
+    // Start the polling
+    checkStatus();
+  };
+
+  const handleDelete = async () => {
+    if (!business) return;
+
+    setIsDeleting(true);
+
+    try {
+      const { data: { session } } = await supabaseBrowserClient.auth.getSession();
+
+      if (!session) {
+        console.error("No session found");
+        return;
+      }
+
+      const response = await fetch(`/api/business/${business.id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Fehler beim Löschen des Firmenprofils");
+      }
+
+      // Reset the business state to show the create profile screen again
+      setBusiness(null);
+      setEditedBusiness(null);
+      setShowDeleteConfirm(false);
+    } catch (error) {
+      console.error("Error deleting business:", error);
+      alert("Fehler beim Löschen des Firmenprofils. Bitte versuche es erneut.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCompletionClose = () => {
+    setShowCompletionMessage(false);
+  };
+
+  const handleNavigateToProducts = () => {
+    if (onNavigateToProducts) {
+      onNavigateToProducts();
     }
   };
 
@@ -230,66 +358,143 @@ export default function BusinessProfileView() {
   if (!business) {
     return (
       <>
-        <div className="flex-1 flex items-center justify-center bg-white dark:bg-gray-950 p-8">
-          <div className="max-w-xl w-full">
-            <div className="text-center mb-10">
-              {/* Badge */}
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 dark:border-gray-800 mb-6">
-                <span className="text-sm text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 font-semibold">
-                  Firmenprofil
-                </span>
-              </div>
+        <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-8">
+          <div className="max-w-2xl w-full">
+            {!isProcessing ? (
+              <>
+                <div className="text-center mb-48">
+                  {/* Title */}
+                  <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-8 tracking-tight">
+                    Willkommen in deinem{" "}
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
+                      XV Studio
+                    </span>
+                  </h2>
 
-              {/* Title */}
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
-                Bevor du Bilder und Videos erstellst
-              </h2>
-
-              {/* Description */}
-              <p className="text-lg text-gray-600 dark:text-gray-400 leading-relaxed">
-                Beginne damit, deine Business-URL anzugeben, damit wir ein Firmenprofil erstellen und es für die Erstellung von Marketingmaterial verwenden können.
-              </p>
-            </div>
-
-            {/* URL Input Box */}
-            <div className="bg-gray-50 dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-200 dark:border-gray-800 p-8">
-              <label htmlFor="businessUrl" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                Deine Webseiten-URL
-              </label>
-              <input
-                id="businessUrl"
-                type="url"
-                value={businessUrl}
-                onChange={(e) => setBusinessUrl(e.target.value)}
-                placeholder="https://www.deinefirma.ch"
-                className="w-full px-5 py-4 border-2 border-gray-200 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors mb-4"
-                disabled={isProcessing}
-              />
-
-              {/* Error Message */}
-              {processingError && (
-                <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl text-red-600 dark:text-red-400 text-sm">
-                  {processingError}
+                  {/* Description */}
+                  <p className="text-base text-gray-500 dark:text-gray-500 leading-relaxed">
+                    Bevor wir gemeinsam kreativ werden, möchten wir gerne mehr über dein Geschäft erfahren. Gib einfach deine Webseite an und unsere KI erstellt ein Unternehmensprofil mit deinen Produkten oder Servicedienstleistungen. Diese dienen als Basis für deine neuen Bilder & Videos.
+                  </p>
                 </div>
-              )}
 
-              {/* Let's Go Button */}
-              <button
-                onClick={handleCreateProfile}
-                disabled={isProcessing || !businessUrl.trim()}
-                className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white rounded-full font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isProcessing ? "Wird analysiert..." : "Los geht&apos;s"}
-              </button>
-            </div>
+                {/* URL Input Box with Submit Button */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      id="businessUrl"
+                      type="url"
+                      value={businessUrl}
+                      onChange={(e) => setBusinessUrl(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !isProcessing && businessUrl.trim()) {
+                          handleCreateProfile();
+                        }
+                      }}
+                      placeholder="https://www.deinefirma.ch"
+                      className="flex-1 px-6 py-4 border-2 border-gray-200 dark:border-gray-700 rounded-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors text-base"
+                      disabled={isProcessing}
+                    />
+                    <button
+                      onClick={handleCreateProfile}
+                      disabled={isProcessing || !businessUrl.trim()}
+                      className="w-14 h-14 flex items-center justify-center bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white rounded-full font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                      title="Absenden"
+                    >
+                      <svg
+                        className="w-6 h-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M14 5l7 7m0 0l-7 7m7-7H3"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Error Message */}
+                  {processingError && (
+                    <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl text-red-600 dark:text-red-400 text-sm">
+                      {processingError}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              /* Inline Loading State */
+              <div className="text-center space-y-8">
+                {/* Circular loading animation */}
+                <div className="flex justify-center">
+                  <div className="relative w-20 h-20">
+                    {/* Outer spinning circle */}
+                    <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-700 rounded-full"></div>
+                    <div className="absolute inset-0 border-4 border-transparent border-t-purple-600 dark:border-t-purple-400 rounded-full animate-spin"></div>
+                    {/* Inner pulsing circle */}
+                    <div className="absolute inset-3 bg-purple-100 dark:bg-purple-800 rounded-full animate-pulse"></div>
+                    {/* Center dot */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-4 h-4 bg-purple-600 dark:bg-purple-400 rounded-full"></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Title */}
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
+                  Erstelle dein Unternehmensprofil
+                </h2>
+
+                {/* Subtitle */}
+                <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed max-w-md mx-auto">
+                  Wir analysieren deine Webseite und erstellen dein Unternehmensprofil mit Angeboten.<br />
+                  Dies kann bis zu 10 Minuten dauern.
+                </p>
+
+                {/* Status indicator */}
+                <div className="flex items-center justify-center gap-2 bg-white dark:bg-gray-800 rounded-xl px-4 py-3 border border-gray-200 dark:border-gray-700 inline-flex mx-auto">
+                  <div className="flex gap-1">
+                    <span className="w-1.5 h-1.5 bg-purple-500 dark:bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
+                    <span className="w-1.5 h-1.5 bg-purple-500 dark:bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
+                    <span className="w-1.5 h-1.5 bg-purple-500 dark:bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Webseite wird analysiert
+                  </span>
+                </div>
+
+                {/* URL Display */}
+                <div className="flex items-center justify-center gap-2 bg-white dark:bg-gray-800 rounded-xl px-4 py-3 border border-gray-200 dark:border-gray-700 inline-flex mx-auto">
+                  <svg
+                    className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                    />
+                  </svg>
+                  <span className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                    {businessUrl}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        <LoadingModal
-          isOpen={isProcessing}
-          businessUrl={businessUrl}
-          estimatedTimeMinutes={2}
-        />
+        {showCompletionMessage && (
+          <CompletionModal
+            onClose={handleCompletionClose}
+            onNavigateToProducts={handleNavigateToProducts}
+          />
+        )}
       </>
     );
   }
@@ -329,7 +534,7 @@ export default function BusinessProfileView() {
                   </p>
                 )}
                 <a
-                  href={business.company_url}
+                  href={ensureUrlProtocol(business.company_url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center text-sm text-blue-600 dark:text-blue-400 hover:underline"
@@ -342,15 +547,39 @@ export default function BusinessProfileView() {
               </div>
             </div>
             {!isEditing ? (
-              <button
-                onClick={handleEdit}
-                className="px-6 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl font-medium hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                Bearbeiten
-              </button>
+              <div className="flex flex-col items-end gap-3">
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="px-6 py-3 bg-red-600 dark:bg-red-700 text-white rounded-2xl font-medium hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Löschen
+                  </button>
+                  <button
+                    onClick={handleEdit}
+                    className="px-6 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-2xl font-medium hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Bearbeiten
+                  </button>
+                </div>
+                {onNavigateToProducts && (
+                  <button
+                    onClick={handleNavigateToProducts}
+                    className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all shadow-md flex items-center justify-center gap-2"
+                  >
+                    <span>Weiter zu den Angeboten</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             ) : (
               <div className="flex gap-3">
                 <button
@@ -686,6 +915,87 @@ export default function BusinessProfileView() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl max-w-md w-full mx-4 p-8 border-2 border-gray-200 dark:border-gray-800">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0">
+                <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Firmenprofil löschen?
+                </h3>
+              </div>
+            </div>
+
+            <p className="text-gray-700 dark:text-gray-300 mb-8 leading-relaxed">
+              Bist du sicher, dass du dieses Firmenprofil löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="flex-1 px-6 py-3 bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white font-medium rounded-2xl hover:bg-gray-300 dark:hover:bg-gray-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="flex-1 px-6 py-3 bg-red-600 dark:bg-red-700 text-white font-medium rounded-2xl hover:bg-red-700 dark:hover:bg-red-800 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? "Wird gelöscht..." : "Löschen"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Completion Modal Component
+interface CompletionModalProps {
+  onClose: () => void;
+  onNavigateToProducts: () => void;
+}
+
+function CompletionModal({ onClose, onNavigateToProducts }: CompletionModalProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl max-w-md w-full mx-4 p-8 border-2 border-gray-200 dark:border-gray-800">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center flex-shrink-0">
+            <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+              Profil erstellt!
+            </h3>
+          </div>
+        </div>
+
+        <p className="text-gray-700 dark:text-gray-300 mb-8 leading-relaxed">
+          Das Unternehmens & Angebotsprofil ist bereit für dich zum Review.
+        </p>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-2xl hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
+          >
+            OK
+          </button>
         </div>
       </div>
     </div>
