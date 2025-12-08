@@ -10,6 +10,7 @@ import ProductImageSelector from "./ProductImageSelector";
 import GeneratedImagesDisplay from "./GeneratedImagesDisplay";
 import BilderWorkflowSelector from "./BilderWorkflowSelector";
 import VideoWorkflowSelector from "./VideoWorkflowSelector";
+import SocialBoostSubWorkflowSelector from "./SocialBoostSubWorkflowSelector";
 import ProductImagesMultiSelector from "./ProductImagesMultiSelector";
 import { Database } from "@/types/database";
 
@@ -36,6 +37,8 @@ interface MessageBubbleProps {
   onBilderProductImagesConfirm?: (selectedImages: string[]) => void;
   // Video workflow handlers
   onVideoWorkflowSelection?: (workflow: "social-booster" | "inspirational" | "ai-explains") => void;
+  onSocialBoostSubWorkflowSelection?: (subWorkflow: "product-rotation" | "user-speaks" | "image-to-video") => void;
+  onProductRotationImageSelection?: (imageUrl: string) => void;
   onAiExplainsImageSelection?: (imageUrl: string) => void;
 }
 
@@ -55,6 +58,8 @@ export default function MessageBubble({
   onBilderWorkflowSelection,
   onBilderProductImagesConfirm,
   onVideoWorkflowSelection,
+  onSocialBoostSubWorkflowSelection,
+  onProductRotationImageSelection,
   onAiExplainsImageSelection,
 }: MessageBubbleProps) {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
@@ -310,12 +315,16 @@ export default function MessageBubble({
   const parseVideoWorkflowMarkers = (msg: string): {
     cleanMessage: string;
     showVideoWorkflowSelector: boolean;
+    showSocialBoostSubWorkflowSelector: boolean;
     showVideoProductSelector: boolean;
+    productRotationImageSelectorData: { images: string[]; productName: string } | null;
     aiExplainsImageSelectorData: { images: string[]; productName: string } | null;
   } => {
     let cleanMsg = msg;
     let showVideoWorkflowSelector = false;
+    let showSocialBoostSubWorkflowSelector = false;
     let showVideoProductSelector = false;
+    let productRotationImageSelectorData = null;
     let aiExplainsImageSelectorData = null;
 
     // Check for [VIDEO_WORKFLOW_SELECTOR]
@@ -324,10 +333,48 @@ export default function MessageBubble({
       cleanMsg = cleanMsg.replace('[VIDEO_WORKFLOW_SELECTOR]', '').trim();
     }
 
+    // Check for [SOCIAL_BOOST_SUB_WORKFLOW_SELECTOR]
+    if (cleanMsg.includes('[SOCIAL_BOOST_SUB_WORKFLOW_SELECTOR]')) {
+      showSocialBoostSubWorkflowSelector = true;
+      cleanMsg = cleanMsg.replace('[SOCIAL_BOOST_SUB_WORKFLOW_SELECTOR]', '').trim();
+    }
+
     // Check for [VIDEO_PRODUCT_SELECTOR]
     if (cleanMsg.includes('[VIDEO_PRODUCT_SELECTOR]')) {
       showVideoProductSelector = true;
       cleanMsg = cleanMsg.replace('[VIDEO_PRODUCT_SELECTOR]', '').trim();
+    }
+
+    // Check for [PRODUCT_ROTATION_IMAGE_SELECTOR:{...}]
+    const productRotationMarker = '[PRODUCT_ROTATION_IMAGE_SELECTOR:';
+    const productRotationStart = cleanMsg.indexOf(productRotationMarker);
+    if (productRotationStart !== -1) {
+      let braceCount = 0;
+      let endIndex = -1;
+      let i = productRotationStart + productRotationMarker.length;
+
+      for (; i < cleanMsg.length; i++) {
+        if (cleanMsg[i] === '{') {
+          braceCount++;
+        } else if (cleanMsg[i] === '}') {
+          braceCount--;
+          if (braceCount === 0) {
+            endIndex = i;
+            break;
+          }
+        }
+      }
+
+      if (endIndex !== -1 && cleanMsg[endIndex + 1] === ']') {
+        const jsonStr = cleanMsg.substring(productRotationStart + productRotationMarker.length, endIndex + 1);
+        try {
+          productRotationImageSelectorData = JSON.parse(jsonStr);
+          const fullMarker = cleanMsg.substring(productRotationStart, endIndex + 2);
+          cleanMsg = cleanMsg.replace(fullMarker, '').trim();
+        } catch (error) {
+          console.error("Error parsing Product Rotation image selector data:", error, "JSON:", jsonStr);
+        }
+      }
     }
 
     // Check for [AI_EXPLAINS_IMAGE_SELECTOR:{...}]
@@ -365,7 +412,9 @@ export default function MessageBubble({
     return {
       cleanMessage: cleanMsg,
       showVideoWorkflowSelector,
+      showSocialBoostSubWorkflowSelector,
       showVideoProductSelector,
+      productRotationImageSelectorData,
       aiExplainsImageSelectorData,
     };
   };
@@ -389,7 +438,9 @@ export default function MessageBubble({
   const {
     cleanMessage,
     showVideoWorkflowSelector,
+    showSocialBoostSubWorkflowSelector,
     showVideoProductSelector,
+    productRotationImageSelectorData,
     aiExplainsImageSelectorData,
   } = parseVideoWorkflowMarkers(msgAfterBilder);
   const allImageUrls = [...(imageUrls || []), ...parsedImageUrls];
@@ -463,7 +514,7 @@ export default function MessageBubble({
       initial="hidden"
       animate="visible"
     >
-      <div className={`flex gap-3 max-w-[80%] ${isUser ? "flex-row-reverse" : "flex-row"}`}>
+      <div className={`flex gap-3 ${products && products.length > 0 ? "max-w-full" : "max-w-[80%]"} ${isUser ? "flex-row-reverse" : "flex-row"}`}>
         {!isUser && (
           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -573,10 +624,49 @@ export default function MessageBubble({
             </div>
           )}
 
+          {/* Display Social Boost sub-workflow selector */}
+          {showSocialBoostSubWorkflowSelector && !isUser && onSocialBoostSubWorkflowSelection && (
+            <div className="mt-3">
+              <SocialBoostSubWorkflowSelector onSelectSubWorkflow={onSocialBoostSubWorkflowSelection} />
+            </div>
+          )}
+
           {/* Display Video product selector */}
           {showVideoProductSelector && !isUser && onProductSelection && (
             <div className="mt-3">
               <ProductSelector onSelectProduct={(product) => onProductSelection(product.id)} />
+            </div>
+          )}
+
+          {/* Display Product Rotation image selector (single image selection) */}
+          {productRotationImageSelectorData && !isUser && onProductRotationImageSelection && (
+            <div className="mt-3">
+              <div className="mb-2 text-sm text-gray-700 dark:text-gray-300 font-medium">
+                Wähle ein Bild für dein Video:
+              </div>
+              <div className="grid grid-cols-3 gap-2.5">
+                {productRotationImageSelectorData.images.map((imageUrl, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.1 * idx }}
+                    className="relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 border-transparent hover:border-orange-500 transition-all"
+                    onClick={() => onProductRotationImageSelection(imageUrl)}
+                  >
+                    <img
+                      src={imageUrl}
+                      alt={`${productRotationImageSelectorData.productName} - Bild ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-opacity flex items-center justify-center">
+                      <div className="opacity-0 hover:opacity-100 transition-opacity bg-orange-600 text-white px-3 py-1 rounded-full text-sm">
+                        Auswählen
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -586,20 +676,20 @@ export default function MessageBubble({
               <div className="mb-2 text-sm text-gray-700 dark:text-gray-300 font-medium">
                 Wähle ein Bild für dein Video:
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2.5">
                 {aiExplainsImageSelectorData.images.map((imageUrl, idx) => (
                   <motion.div
                     key={idx}
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.1 * idx }}
-                    className="relative rounded-lg overflow-hidden cursor-pointer border-2 border-transparent hover:border-purple-500 transition-all"
+                    className="relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 border-transparent hover:border-purple-500 transition-all"
                     onClick={() => onAiExplainsImageSelection(imageUrl)}
                   >
                     <img
                       src={imageUrl}
                       alt={`${aiExplainsImageSelectorData.productName} - Bild ${idx + 1}`}
-                      className="w-full h-32 object-cover"
+                      className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-opacity flex items-center justify-center">
                       <div className="opacity-0 hover:opacity-100 transition-opacity bg-purple-600 text-white px-3 py-1 rounded-full text-sm">

@@ -31,6 +31,8 @@ interface ChatMessagesProps {
   onBilderProductImagesConfirm?: (selectedImages: string[]) => void;
   // Video workflow handlers
   onVideoWorkflowSelection?: (workflow: "social-booster" | "inspirational" | "ai-explains") => void;
+  onSocialBoostSubWorkflowSelection?: (subWorkflow: "product-rotation" | "user-speaks" | "image-to-video") => void;
+  onProductRotationImageSelection?: (imageUrl: string) => void;
   onAiExplainsImageSelection?: (imageUrl: string) => void;
   // Generation state
   isGeneratingContent?: boolean;
@@ -50,6 +52,8 @@ export default function ChatMessages({
   onBilderWorkflowSelection,
   onBilderProductImagesConfirm,
   onVideoWorkflowSelection,
+  onSocialBoostSubWorkflowSelection,
+  onProductRotationImageSelection,
   onAiExplainsImageSelection,
   isGeneratingContent,
   generationType,
@@ -114,6 +118,8 @@ export default function ChatMessages({
                 onBilderWorkflowSelection={onBilderWorkflowSelection}
                 onBilderProductImagesConfirm={onBilderProductImagesConfirm}
                 onVideoWorkflowSelection={onVideoWorkflowSelection}
+                onSocialBoostSubWorkflowSelection={onSocialBoostSubWorkflowSelection}
+                onProductRotationImageSelection={onProductRotationImageSelection}
                 onAiExplainsImageSelection={onAiExplainsImageSelection}
               />
             );

@@ -53,6 +53,7 @@ interface ConversationState {
   // Video workflow state
   videoWorkflowState?: {
     workflow: "social-booster" | "inspirational" | "ai-explains" | null;
+    subWorkflow?: "product-rotation" | "user-speaks" | "image-to-video";
     selectedProduct: any | null;
     selectedImage: string | null;
     scenarioDescription: string | null;
@@ -431,6 +432,36 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
       }
     }
 
+    // Handle Product Rotation workflow input collection
+    if (selectedProductId === 2 && currentState.videoWorkflowState?.subWorkflow === "product-rotation") {
+      if (currentState.videoWorkflowState.waitingFor === "prompt" && content.trim()) {
+        // User provided the style prompt - start video generation
+        const userMessage: Message = {
+          id: Date.now().toString(),
+          role: "user",
+          content: content.trim(),
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        };
+
+        const prompt = content.trim();
+
+        setCurrentState(prev => ({
+          ...prev,
+          videoWorkflowState: {
+            ...prev.videoWorkflowState!,
+            personDescription: prompt, // Store the style description
+            waitingFor: null,
+          },
+          messages: [...prev.messages, userMessage],
+        }));
+
+        // Trigger video generation with the prompt
+        setIsLoading(true);
+        await handleProductRotationVideoGeneration(prompt);
+        return;
+      }
+    }
+
     // Handle Social Media Campaign generation trigger
     if (
       selectedProductId === 1 &&
@@ -450,6 +481,195 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         await handleCampaignGeneration(content.trim());
         return;
       }
+    }
+
+    // Handle Bilder combine workflow - direct generation with uploaded images
+    if (
+      selectedProductId === 0 &&
+      currentState.bilderWorkflowState?.workflow === "combine" &&
+      images && images.length > 0 &&
+      content.trim() &&
+      !currentState.isComplete
+    ) {
+      console.log("[BILDER COMBINE DEBUG] ✅ Combine workflow triggered! Uploading images and generating directly");
+
+      setIsLoading(true);
+
+      // Upload images first
+      let uploadedImageUrls: string[] = [];
+      try {
+        const { supabaseBrowserClient } = await import("@/lib/supabaseClient");
+
+        for (const image of images) {
+          const fileExt = image.name.split(".").pop();
+          const timestamp = Date.now();
+          const datePrefix = new Date().toISOString().split('T')[0];
+          const randomId = Math.random().toString(36).substring(7);
+          const fileName = `${datePrefix}-${timestamp}-${randomId}.${fileExt}`;
+          const bucket = "temporary";
+          const folder = "bilder";
+          const filePath = `${folder}/${fileName}`;
+
+          const { data, error } = await supabaseBrowserClient.storage
+            .from(bucket)
+            .upload(filePath, image);
+
+          if (error) {
+            throw new Error(`Failed to upload image: ${error.message}`);
+          }
+
+          const { data: urlData } = supabaseBrowserClient.storage
+            .from(bucket)
+            .getPublicUrl(filePath);
+
+          uploadedImageUrls.push(urlData.publicUrl);
+        }
+      } catch (error: any) {
+        console.error("Error uploading images:", error);
+        setIsLoading(false);
+        setCurrentState((prev) => ({
+          ...prev,
+          messages: [
+            ...prev.messages,
+            {
+              id: Date.now().toString(),
+              role: "assistant",
+              content: `Entschuldigung, es gab einen Fehler beim Hochladen deiner Bilder: ${error.message}`,
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              status: "error",
+            },
+          ],
+        }));
+        return;
+      }
+
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        role: "user",
+        content: content.trim(),
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        imageUrls: uploadedImageUrls,
+      };
+
+      setCurrentState((prev) => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          userMessage,
+          {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: "Perfekt! Ich kombiniere deine Bilder jetzt...",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+        generationState: {
+          isGenerating: true,
+          type: "image",
+          message: "Kombiniertes Bild wird erstellt",
+        },
+      }));
+
+      // Generate combined image with standard settings
+      const payload = {
+        productId: 0,
+        prompt: content.trim(),
+        aspectRatio: "16:9",
+        resolution: "2K",
+        outputFormat: "jpg",
+        hasReferenceImages: true,
+        imageUrls: uploadedImageUrls,
+      };
+
+      try {
+        const response = await fetch("/api/webhook", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error("Image generation request failed");
+        }
+
+        const result = await response.json();
+
+        if (result.imageUrl) {
+          onPreviewUpdate?.(result.imageUrl);
+
+          onGenerationParamsUpdate?.({
+            isCampaignImage: true,
+            imageUrl: result.imageUrl,
+            prompt: content.trim(),
+            aspectRatio: "16:9",
+            resolution: "2K",
+            outputFormat: "jpg",
+            hasReferenceImages: true,
+            imageUrls: uploadedImageUrls,
+            onEdit: (editPrompt: string) => {
+              handleBilderImageEdit(result.imageUrl, editPrompt);
+            },
+          });
+
+          setCurrentState((prev) => ({
+            ...prev,
+            currentImageUrl: result.imageUrl,
+            isRefining: true,
+            originalImageSettings: {
+              aspectRatio: "16:9",
+              resolution: "2K",
+              outputFormat: "jpg",
+            },
+            lastGenerationParams: {
+              prompt: content.trim(),
+              aspectRatio: "16:9",
+              resolution: "2K",
+              outputFormat: "jpg",
+              hasReferenceImages: true,
+              imageUrls: uploadedImageUrls,
+            },
+            generationState: {
+              isGenerating: false,
+              type: null,
+              message: undefined,
+            },
+            messages: [
+              ...prev.messages,
+              {
+                id: Date.now().toString(),
+                role: "assistant",
+                content: "Dein kombiniertes Bild ist fertig! Schau es dir im Vorschau-Bereich an. Möchtest du Änderungen vornehmen? Beschreibe einfach, was ich anpassen soll.",
+                timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              },
+            ],
+          }));
+        }
+      } catch (error: any) {
+        console.error("Error generating combined image:", error);
+        setCurrentState((prev) => ({
+          ...prev,
+          generationState: {
+            isGenerating: false,
+            type: null,
+            message: undefined,
+          },
+          messages: [
+            ...prev.messages,
+            {
+              id: Date.now().toString(),
+              role: "assistant",
+              content: `Es gab einen Fehler bei der Bildgenerierung: ${error.message}`,
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              status: "error" as const,
+            },
+          ],
+        }));
+      } finally {
+        setIsLoading(false);
+      }
+      return;
     }
 
     // Handle Bilder product workflow - direct generation with standard settings
@@ -523,12 +743,17 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
 
           // Store generation params for potential refinement
           onGenerationParamsUpdate?.({
+            isCampaignImage: true,
+            imageUrl: result.imageUrl,
             prompt: content.trim(),
             aspectRatio: "16:9",
             resolution: "2K",
             outputFormat: "jpg",
             hasReferenceImages: true,
             imageUrls: currentState.bilderWorkflowState!.selectedProductImages,
+            onEdit: (editPrompt: string) => {
+              handleBilderImageEdit(result.imageUrl, editPrompt);
+            },
           });
 
           setCurrentState((prev) => ({
@@ -1807,8 +2032,11 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         await displayProductImagesForBilder(productId);
       }
     } else if (selectedProductId === 2) {
-      // Check if we're in AI Explains workflow mode
-      if (currentState.videoWorkflowState?.workflow === "ai-explains") {
+      // Check if we're in product rotation sub-workflow
+      if (currentState.videoWorkflowState?.subWorkflow === "product-rotation") {
+        await handleProductRotationProductSelection(productId);
+      } else if (currentState.videoWorkflowState?.workflow === "ai-explains") {
+        // AI Explains workflow mode
         await handleAiExplainsProductSelection(productId);
       } else {
         // Other video workflows - show video concepts
@@ -2126,6 +2354,103 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
     }
   };
 
+  const handleBilderImageEdit = async (imageUrl: string, editPrompt: string) => {
+    console.log("🖼️ [Bilder Edit] ===== FUNCTION CALLED =====");
+    console.log("🖼️ [Bilder Edit] Image URL:", imageUrl);
+    console.log("🖼️ [Bilder Edit] Edit prompt:", editPrompt);
+
+    try {
+      setIsLoading(true);
+
+      // Call the edit webhook
+      const editPayload = {
+        productId: 0,
+        prompt: editPrompt,
+        isEditing: true,
+        imageUrl,
+        aspectRatio: currentState.lastGenerationParams?.aspectRatio || "16:9",
+        resolution: currentState.lastGenerationParams?.resolution || "2K",
+        outputFormat: currentState.lastGenerationParams?.outputFormat || "jpg",
+      };
+
+      console.log("🖼️ [Bilder Edit] Sending edit request:", editPayload);
+
+      const response = await fetch("/api/webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(editPayload),
+      });
+
+      console.log("🖼️ [Bilder Edit] Response status:", response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("🖼️ [Bilder Edit] Webhook failed:", errorText);
+        throw new Error("Bild-Bearbeitung fehlgeschlagen");
+      }
+
+      const result = await response.json();
+      console.log("🖼️ [Bilder Edit] Webhook result:", result);
+
+      if (!result.imageUrl) {
+        console.error("🖼️ [Bilder Edit] No imageUrl in response!");
+        throw new Error("Keine Bild-URL erhalten");
+      }
+
+      // Update preview with the new edited image
+      console.log("🖼️ [Bilder Edit] Calling onPreviewUpdate with:", result.imageUrl);
+      onPreviewUpdate?.(result.imageUrl);
+
+      // Update generation params to maintain edit capability
+      onGenerationParamsUpdate?.({
+        isCampaignImage: true,
+        imageUrl: result.imageUrl,
+        prompt: editPrompt,
+        aspectRatio: editPayload.aspectRatio,
+        resolution: editPayload.resolution,
+        outputFormat: editPayload.outputFormat,
+        onEdit: (editPrompt: string) => {
+          handleBilderImageEdit(result.imageUrl, editPrompt);
+        },
+      });
+
+      // Update state
+      setCurrentState(prev => ({
+        ...prev,
+        currentImageUrl: result.imageUrl,
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "✅ Dein bearbeitetes Bild ist fertig! Schau es dir im Vorschau-Bereich an.",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+
+    } catch (error: any) {
+      console.error("🖼️ [Bilder Edit] ❌ ERROR:", error);
+      setCurrentState(prev => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `❌ Fehler beim Bearbeiten: ${error.message}`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            status: "error",
+          },
+        ],
+      }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCampaignImageEdit = async (imageUrl: string, editPrompt: string) => {
     console.log("🎨 [Campaign Edit] ===== FUNCTION CALLED =====");
     console.log("🎨 [Campaign Edit] Image URL:", imageUrl);
@@ -2331,6 +2656,33 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
   };
 
   const handleVideoWorkflowSelection = async (workflow: "social-booster" | "inspirational" | "ai-explains") => {
+    // Special handling for Social Media Boost - show sub-workflow selector
+    if (workflow === "social-booster") {
+      setCurrentState(prev => ({
+        ...prev,
+        videoWorkflowState: {
+          ...prev.videoWorkflowState,
+          workflow,
+          selectedProduct: null,
+          selectedImage: null,
+          scenarioDescription: null,
+          personDescription: null,
+          actionDescription: null,
+          waitingFor: null,
+        },
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "Super! Wähle aus, wie dein Social Media Boost Video aussehen soll:\n\n[SOCIAL_BOOST_SUB_WORKFLOW_SELECTOR]",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+      return;
+    }
+
     setCurrentState(prev => ({
       ...prev,
       videoWorkflowState: {
@@ -2352,9 +2704,9 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         const { data: userData } = await supabaseBrowserClient.auth.getUser();
 
         if (userData?.user) {
-          // Fetch products with video concepts
-          const { getUserBusinessProducts } = await import("@/lib/database");
-          const products = await getUserBusinessProducts(userData.user.id);
+          // Fetch all products (not just those with video concepts)
+          const { getAllUserBusinessProducts } = await import("@/lib/database");
+          const products = await getAllUserBusinessProducts(userData.user.id);
 
           // If products exist, show explanation then products
           if (products && products.length > 0) {
@@ -2409,15 +2761,15 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         }));
       }
     } else {
-      // For other workflows (social-booster, inspirational), just show products
+      // For other workflows (inspirational), just show products
       try {
         // Get user_id from auth
         const { data: userData } = await supabaseBrowserClient.auth.getUser();
 
         if (userData?.user) {
-          // Fetch products with video concepts
-          const { getUserBusinessProducts } = await import("@/lib/database");
-          const products = await getUserBusinessProducts(userData.user.id);
+          // Fetch all products (not just those with video concepts)
+          const { getAllUserBusinessProducts } = await import("@/lib/database");
+          const products = await getAllUserBusinessProducts(userData.user.id);
 
           // If products exist, embed them in the message
           if (products && products.length > 0) {
@@ -2471,6 +2823,339 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
           ],
         }));
       }
+    }
+  };
+
+  const handleSocialBoostSubWorkflowSelection = async (subWorkflow: "product-rotation" | "user-speaks" | "image-to-video") => {
+    console.log("[Social Boost Sub-Workflow] Selected:", subWorkflow);
+
+    // Store the sub-workflow in state and set waitingFor to "product"
+    setCurrentState(prev => ({
+      ...prev,
+      videoWorkflowState: {
+        ...prev.videoWorkflowState!,
+        subWorkflow,
+        waitingFor: "product",
+        selectedProduct: null,
+        selectedImage: null,
+      },
+    }));
+
+    // Now show products for the selected sub-workflow
+    try {
+      const { data: userData } = await supabaseBrowserClient.auth.getUser();
+
+      if (userData?.user) {
+        const { getAllUserBusinessProducts } = await import("@/lib/database");
+        const products = await getAllUserBusinessProducts(userData.user.id);
+
+        if (products && products.length > 0) {
+          const productData = products.map(p => ({
+            id: p.id,
+            product_name: p.product_name,
+            product_description: p.product_description,
+            product_images: p.product_images
+          }));
+
+          setCurrentState(prev => ({
+            ...prev,
+            messages: [
+              ...prev.messages,
+              {
+                id: Date.now().toString(),
+                role: "assistant",
+                content: `Perfekt! Wähle ein Produkt aus deinem Katalog:\n\n[PRODUCT_SELECTION:${JSON.stringify(productData)}]`,
+                timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              },
+            ],
+          }));
+        } else {
+          setCurrentState(prev => ({
+            ...prev,
+            messages: [
+              ...prev.messages,
+              {
+                id: Date.now().toString(),
+                role: "assistant",
+                content: "Du hast noch keine Produkte in deinem Katalog. Bitte füge zuerst ein Produkt hinzu, bevor du ein Video erstellst.",
+                timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              },
+            ],
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Error loading products for social boost sub-workflow:", error);
+      setCurrentState(prev => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "Es gab einen Fehler beim Laden deiner Produkte. Bitte versuche es erneut.",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+    }
+  };
+
+  const handleProductRotationProductSelection = async (productId: string) => {
+    try {
+      setIsLoading(true);
+
+      // Fetch the selected product from database
+      const { data: product, error } = await supabaseBrowserClient
+        .from("business_products")
+        .select("*")
+        .eq("id", productId)
+        .single();
+
+      if (error || !product) {
+        throw new Error("Produkt nicht gefunden");
+      }
+
+      // Extract product images
+      let imageUrls: string[] = [];
+      const productImages = product.product_images;
+      if (Array.isArray(productImages)) {
+        imageUrls = productImages.filter((img): img is string => typeof img === 'string');
+      } else if (productImages && typeof productImages === 'object') {
+        imageUrls = Object.values(productImages).filter((val): val is string => typeof val === 'string');
+      }
+
+      if (imageUrls.length === 0) {
+        throw new Error("Keine Bilder für dieses Produkt gefunden");
+      }
+
+      // Update state: save product, set waitingFor to "image", show image selector
+      setCurrentState(prev => ({
+        ...prev,
+        videoWorkflowState: {
+          ...prev.videoWorkflowState!,
+          selectedProduct: product,
+          waitingFor: "image",
+        },
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `Großartig! Du hast "${product.product_name}" ausgewählt.
+
+Wähle jetzt EIN Bild aus, das im Video rotieren soll:
+
+[PRODUCT_ROTATION_IMAGE_SELECTOR:${JSON.stringify({
+              images: imageUrls,
+              productName: product.product_name,
+            })}]`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+
+      setIsLoading(false);
+    } catch (error: any) {
+      console.error("Error in handleProductRotationProductSelection:", error);
+      setIsLoading(false);
+      setCurrentState(prev => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `Fehler: ${error.message}`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+    }
+  };
+
+  const handleProductRotationImageSelection = (imageUrl: string) => {
+    setCurrentState(prev => ({
+      ...prev,
+      videoWorkflowState: {
+        ...prev.videoWorkflowState!,
+        selectedImage: imageUrl,
+        waitingFor: "prompt",
+      },
+      messages: [
+        ...prev.messages,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: `Perfekt! Jetzt beschreibe kurz den Stil für das Video.
+
+**Beispiele:**
+- "premium, photorealistic photoshoot video"
+- "elegant mit warmem Licht"
+- "modern und minimalistisch"
+- "luxuriös und hochwertig"`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ],
+    }));
+  };
+
+  const handleProductRotationVideoGeneration = async (prompt?: string) => {
+    try {
+      const product = currentState.videoWorkflowState?.selectedProduct;
+      const selectedImage = currentState.videoWorkflowState?.selectedImage;
+      const videoPrompt = prompt || currentState.videoWorkflowState?.personDescription;
+
+      if (!product || !selectedImage || !videoPrompt) {
+        console.error("Missing data for product rotation video generation:", {
+          product: !!product,
+          selectedImage: !!selectedImage,
+          prompt: !!videoPrompt,
+        });
+        throw new Error("Fehlende Daten für Video-Erstellung");
+      }
+
+      // Set generation state to show loading indicator
+      setCurrentState(prev => ({
+        ...prev,
+        generationState: {
+          isGenerating: true,
+          type: "video",
+          message: "Video wird erstellt",
+        },
+      }));
+
+      // Get user_id from auth
+      const { data: userData } = await supabaseBrowserClient.auth.getUser();
+      if (!userData?.user) {
+        throw new Error("Nicht angemeldet");
+      }
+
+      // Get business_id from database
+      const { getUserBusiness } = await import("@/lib/database");
+      const business = await getUserBusiness(userData.user.id);
+      if (!business) {
+        throw new Error("Kein Business gefunden");
+      }
+
+      // Call product rotation webhook to start the job
+      const response = await fetch("/api/webhook/product-rotation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: userData.user.id,
+          businessId: business.id,
+          productId: product.id,
+          selectedImage,
+          prompt: videoPrompt,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Product rotation webhook error:", errorData);
+        throw new Error(errorData.details || errorData.error || "Video-Erstellung fehlgeschlagen");
+      }
+
+      const result = await response.json();
+
+      if (!result.jobId) {
+        throw new Error("Keine Job-ID erhalten");
+      }
+
+      const jobId = result.jobId;
+      console.log("Product rotation video generation started, job ID:", jobId);
+
+      // Poll for job completion
+      const maxPollingAttempts = 120; // 120 * 5 seconds = 10 minutes max
+      let attempts = 0;
+
+      const pollStatus = async (): Promise<void> => {
+        if (attempts >= maxPollingAttempts) {
+          throw new Error("Video-Erstellung hat zu lange gedauert (über 10 Minuten)");
+        }
+
+        attempts++;
+
+        // Add cache busting to prevent cached responses
+        const statusResponse = await fetch(`/api/campaign-status/${jobId}?t=${Date.now()}`, {
+          cache: 'no-store',
+        });
+
+        if (!statusResponse.ok) {
+          throw new Error("Fehler beim Abrufen des Job-Status");
+        }
+
+        const statusData = await statusResponse.json();
+        console.log(`[Product Rotation Polling ${attempts}] Status: ${statusData.job?.status}, VideoUrl: ${statusData.job?.videoUrl ? 'present' : 'null'}`);
+
+        const { status, videoUrl, errorMessage } = statusData.job;
+
+        if (status === "completed") {
+          console.log(`[Product Rotation Polling ${attempts}] Completed! Video URL:`, videoUrl);
+          if (!videoUrl) {
+            console.error(`[Product Rotation Polling ${attempts}] No video URL found!`);
+            throw new Error("Keine Video-URL erhalten");
+          }
+
+          // Show video in preview
+          onPreviewUpdate?.(videoUrl);
+
+          // Mark conversation as complete and stop generation indicator
+          setCurrentState(prev => ({
+            ...prev,
+            isComplete: true,
+            currentImageUrl: videoUrl,
+            generationState: {
+              isGenerating: false,
+              type: null,
+              message: undefined,
+            },
+            messages: [
+              ...prev.messages,
+              {
+                id: Date.now().toString(),
+                role: "assistant",
+                content: "Dein Video wurde erfolgreich erstellt! Du kannst es jetzt in der Vorschau sehen.",
+                timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              },
+            ],
+          }));
+
+          return; // Done!
+        } else if (status === "failed") {
+          throw new Error(errorMessage || "Video-Erstellung fehlgeschlagen");
+        } else {
+          // Still processing, wait and poll again
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+          return pollStatus();
+        }
+      };
+
+      await pollStatus();
+
+    } catch (error: any) {
+      console.error("Error in handleProductRotationVideoGeneration:", error);
+      setCurrentState(prev => ({
+        ...prev,
+        generationState: {
+          isGenerating: false,
+          type: null,
+          message: undefined,
+        },
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: `Fehler bei der Video-Erstellung: ${error.message}`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+      setIsLoading(false);
     }
   };
 
@@ -2580,7 +3265,9 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         onBilderWorkflowSelection={selectedProductId === 0 ? handleBilderWorkflowSelection : undefined}
         onBilderProductImagesConfirm={selectedProductId === 0 ? handleBilderProductImagesConfirm : undefined}
         onVideoWorkflowSelection={selectedProductId === 2 ? handleVideoWorkflowSelection : undefined}
-        onAiExplainsImageSelection={selectedProductId === 2 && currentState.videoWorkflowState?.workflow === "ai-explains" ? handleAiExplainsImageSelection : undefined}
+        onSocialBoostSubWorkflowSelection={selectedProductId === 2 ? handleSocialBoostSubWorkflowSelection : undefined}
+        onProductRotationImageSelection={selectedProductId === 2 ? handleProductRotationImageSelection : undefined}
+        onAiExplainsImageSelection={selectedProductId === 2 ? handleAiExplainsImageSelection : undefined}
         isGeneratingContent={currentState.generationState?.isGenerating}
         generationType={currentState.generationState?.type || undefined}
         generationMessage={currentState.generationState?.message}
