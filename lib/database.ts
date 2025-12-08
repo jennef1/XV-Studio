@@ -126,3 +126,26 @@ export async function getUserBusinessProducts(userId: string) {
     return [];
   }
 }
+
+/**
+ * Get all business products for a user (including those without video concepts)
+ */
+export async function getAllUserBusinessProducts(userId: string) {
+  try {
+    const { data, error } = await supabaseBrowserClient
+      .from("business_products")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching all user business products:", error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Error in getAllUserBusinessProducts:", error);
+    return [];
+  }
+}
