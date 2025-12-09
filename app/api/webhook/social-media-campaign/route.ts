@@ -41,10 +41,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get webhook URL from environment
-    const webhookUrl = process.env.N8N_WEBHOOK_URL_SOCIAL_MEDIA_CAMPAIGN;
+    const webhookUrl = process.env.N8N_WEBHOOK_SOCIAL_MEDIA_CAMPAIGN;
 
     if (!webhookUrl) {
-      console.error("N8N_WEBHOOK_URL_SOCIAL_MEDIA_CAMPAIGN is not configured");
+      console.error("N8N_WEBHOOK_SOCIAL_MEDIA_CAMPAIGN is not configured");
       return NextResponse.json(
         { error: "Webhook-Konfiguration fehlt" },
         { status: 500 }

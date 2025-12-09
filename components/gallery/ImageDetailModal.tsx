@@ -137,7 +137,7 @@ export default function ImageDetailModal({ project, onClose, onDelete, onToggleF
                   src={mediaUrl}
                   alt={project.project_name || "Project image"}
                   fill
-                  className="object-cover rounded-lg"
+                  className="object-contain rounded-lg"
                   sizes="(max-width: 1024px) 100vw, 65vw"
                   priority
                 />

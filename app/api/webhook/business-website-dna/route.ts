@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const WEBHOOK_URL = process.env.N8N_WEBHOOK_URL_BUSINESS_WEBSITE_DNA || process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL_BUSINESS_WEBSITE_DNA;
+const WEBHOOK_URL = process.env.N8N_WEBHOOK_URL_BUSINESS_WEBSITE_DNA;
 
 export async function POST(request: NextRequest) {
   try {

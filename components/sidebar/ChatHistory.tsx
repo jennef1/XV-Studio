@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 const galleryItems = [
   {
     id: 1,
@@ -21,7 +23,7 @@ const galleryItems = [
   },
   {
     id: 3,
-    name: "Meine gespeicherten Projekte",
+    name: "Meine Projekte",
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
@@ -42,30 +44,50 @@ const galleryItems = [
 interface ChatHistoryProps {
   selectedId: number | null;
   onSelect: (id: number) => void;
+  hasBusiness: boolean;
 }
 
-export default function ChatHistory({ selectedId, onSelect }: ChatHistoryProps) {
+export default function ChatHistory({ selectedId, onSelect, hasBusiness }: ChatHistoryProps) {
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
   return (
     <div className="px-4 pb-6 mt-6">
-      <p className="text-xs text-gray-400 font-medium mb-2">Gallery</p>
+      <p className="text-xs text-gray-400 font-medium mb-2">Gallerie</p>
       <div className="space-y-1">
         {galleryItems.map((item) => {
           const isActive = item.id === selectedId;
+          const isDisabled = !hasBusiness && (item.id === 3 || item.id === 4);
+
           return (
-            <button
-              key={item.id}
-              onClick={() => onSelect(item.id)}
-              className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors flex items-center gap-3 font-medium ${
-                isActive
-                  ? "bg-gray-900 text-white shadow-sm"
-                  : "text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
-              }`}
-            >
-              <span className={`flex-shrink-0 ${isActive ? "text-white" : "text-gray-600 dark:text-gray-400"}`}>
-                {item.icon}
-              </span>
-              <span className="truncate">{item.name}</span>
-            </button>
+            <div key={item.id} className="relative">
+              <button
+                onClick={() => !isDisabled && onSelect(item.id)}
+                onMouseEnter={() => setHoveredId(item.id)}
+                onMouseLeave={() => setHoveredId(null)}
+                disabled={isDisabled}
+                className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors flex items-center gap-3 font-medium ${
+                  isActive
+                    ? "bg-gray-900 text-white shadow-sm"
+                    : isDisabled
+                    ? "text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50"
+                    : "text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                }`}
+              >
+                <span className={`flex-shrink-0 ${
+                  isActive ? "text-white" : isDisabled ? "text-gray-400" : "text-gray-600 dark:text-gray-400"
+                }`}>
+                  {item.icon}
+                </span>
+                <span className="truncate">{item.name}</span>
+              </button>
+
+              {/* Tooltip */}
+              {isDisabled && hoveredId === item.id && (
+                <div className="absolute left-full ml-2 top-0 z-50 w-48 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg">
+                  Erstelle zuerst dein Unternehmensprofil
+                  <div className="absolute left-0 top-3 -ml-1 w-2 h-2 bg-gray-900 dark:bg-gray-700 transform rotate-45"></div>
+                </div>
+              )}
+            </div>
           );
         })}
       </div>

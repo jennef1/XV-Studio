@@ -16,9 +16,10 @@ interface SidebarProps {
   selectedProductId: number | null;
   onProductSelect: (id: number | null) => void;
   onGallerySelect: (id: number) => void;
+  hasBusiness: boolean;
 }
 
-export default function Sidebar({ selectedProductId, onProductSelect, onGallerySelect }: SidebarProps) {
+export default function Sidebar({ selectedProductId, onProductSelect, onGallerySelect, hasBusiness }: SidebarProps) {
   const [selection, setSelection] = useState<Selection>(null);
 
   const handleProjectSelect = (id: number) => {
@@ -38,11 +39,13 @@ export default function Sidebar({ selectedProductId, onProductSelect, onGalleryS
       <NewProjects
         selectedId={selection?.category === "project" ? selection.id : null}
         onSelect={handleProjectSelect}
+        hasBusiness={hasBusiness}
       />
       <div className="flex-1 flex flex-col justify-end overflow-y-auto">
         <ChatHistory
           selectedId={selection?.category === "chat" ? selection.id : null}
           onSelect={handleChatSelect}
+          hasBusiness={hasBusiness}
         />
       </div>
     </div>

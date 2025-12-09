@@ -70,7 +70,7 @@ export default function ProductSelector({ onSelectProduct }: ProductSelectorProp
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 my-4">
+    <div className="grid grid-cols-3 gap-2.5 my-4">
       {products.map((product) => {
         const imageUrl = Array.isArray(product.product_images) && product.product_images.length > 0
           ? (product.product_images[0] as string)
@@ -80,7 +80,7 @@ export default function ProductSelector({ onSelectProduct }: ProductSelectorProp
           <button
             key={product.id}
             onClick={() => onSelectProduct(product)}
-            className="group bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl overflow-hidden hover:border-blue-400 dark:hover:border-blue-500 transition-all hover:shadow-lg"
+            className="group bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden hover:border-blue-400 dark:hover:border-blue-500 transition-all hover:shadow-lg"
           >
             {/* Product Image */}
             <div className="aspect-square bg-gray-100 dark:bg-gray-900 relative overflow-hidden">
@@ -94,7 +94,7 @@ export default function ProductSelector({ onSelectProduct }: ProductSelectorProp
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <svg className="w-12 h-12 text-gray-300 dark:text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-10 h-10 text-gray-300 dark:text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
                   </svg>
                 </div>
@@ -102,8 +102,8 @@ export default function ProductSelector({ onSelectProduct }: ProductSelectorProp
             </div>
 
             {/* Product Name */}
-            <div className="p-3">
-              <p className="text-sm font-medium text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+            <div className="p-2.5">
+              <p className="text-xs font-medium text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                 {product.product_name || "Unbenanntes Produkt"}
               </p>
             </div>

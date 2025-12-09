@@ -18,7 +18,9 @@
       "Bash(npm run build:*)",
       "Bash(git diff:*)",
       "Bash(git rev-parse:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(npm audit:*)",
+      "Bash(grep -r \"N8N_WEBHOOK_URL_MARKETINGBILDER\\|N8N_WEBHOOK_URL_SOCIAL_MEDIA_CAMPAIGN\" --include=*.ts --include=*.tsx --include=*.js --include=*.jsx --include=*.md --exclude-dir=node_modules --exclude-dir=.next)"
     ],
     "deny": [],
     "ask": []

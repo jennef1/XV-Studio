@@ -97,6 +97,8 @@ export interface Database {
           created_at: string;
           updated_at: string;
           is_favorite: boolean;
+          campaign_job_id: string | null;
+          workflow_type: string | null;
         };
         Insert: {
           id?: string;
@@ -110,6 +112,8 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           is_favorite?: boolean;
+          campaign_job_id?: string | null;
+          workflow_type?: string | null;
         };
         Update: {
           project_name?: string | null;
@@ -117,8 +121,17 @@ export interface Database {
           updated_at?: string;
           is_favorite?: boolean;
           video_url?: string | null;
+          campaign_job_id?: string | null;
+          workflow_type?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "saved_projects_campaign_job_id_fkey";
+            columns: ["campaign_job_id"];
+            referencedRelation: "campaign_generation_jobs";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       business_products: {
         Row: {
@@ -210,7 +223,7 @@ export interface Database {
           user_id: string;
           business_id: string;
           product_id: string;
-          job_type: "campaign_images" | "product_video" | "ai_explains_video";
+          job_type: "campaign_images" | "product_video" | "ai_explains_video" | "onboarding";
           status: "processing" | "completed" | "failed";
           request_data: Json;
           result_images: string[] | null;
@@ -224,7 +237,7 @@ export interface Database {
           user_id: string;
           business_id: string;
           product_id: string;
-          job_type?: "campaign_images" | "product_video" | "ai_explains_video";
+          job_type?: "campaign_images" | "product_video" | "ai_explains_video" | "onboarding";
           status?: "processing" | "completed" | "failed";
           request_data: Json;
           result_images?: string[] | null;
@@ -237,7 +250,7 @@ export interface Database {
           user_id?: string;
           business_id?: string;
           product_id?: string;
-          job_type?: "campaign_images" | "product_video" | "ai_explains_video";
+          job_type?: "campaign_images" | "product_video" | "ai_explains_video" | "onboarding";
           status?: "processing" | "completed" | "failed";
           request_data?: Json;
           result_images?: string[] | null;
@@ -247,9 +260,106 @@ export interface Database {
         };
         Relationships: [];
       };
+      project_tracking: {
+        Row: {
+          id: string;
+          saved_project_id: string;
+          campaign_job_id: string | null;
+          user_id: string;
+          business_id: string | null;
+          product_id: string | null;
+          workflow_type: string;
+          product_category: string | null;
+          generation_count: number;
+          edit_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          saved_project_id: string;
+          campaign_job_id?: string | null;
+          user_id: string;
+          business_id?: string | null;
+          product_id?: string | null;
+          workflow_type: string;
+          product_category?: string | null;
+          generation_count?: number;
+          edit_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          generation_count?: number;
+          edit_count?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_tracking_saved_project_id_fkey";
+            columns: ["saved_project_id"];
+            referencedRelation: "saved_projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_tracking_campaign_job_id_fkey";
+            columns: ["campaign_job_id"];
+            referencedRelation: "campaign_generation_jobs";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      project_edit_history: {
+        Row: {
+          id: string;
+          project_tracking_id: string;
+          saved_project_id: string;
+          edit_type: "generation" | "edit";
+          edit_number: number;
+          prompt: string;
+          result_url: string;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_tracking_id: string;
+          saved_project_id: string;
+          edit_type: "generation" | "edit";
+          edit_number: number;
+          prompt: string;
+          result_url: string;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          // History entries are immutable
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_edit_history_project_tracking_id_fkey";
+            columns: ["project_tracking_id"];
+            referencedRelation: "project_tracking";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_edit_history_saved_project_id_fkey";
+            columns: ["saved_project_id"];
+            referencedRelation: "saved_projects";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
     Views: {};
-    Functions: {};
+    Functions: {
+      increment_edit_count: {
+        Args: {
+          tracking_id: string;
+        };
+        Returns: void;
+      };
+    };
     Enums: {};
     CompositeTypes: {};
   };

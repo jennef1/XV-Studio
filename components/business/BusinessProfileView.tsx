@@ -56,13 +56,14 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error("Error fetching business:", error);
         return;
       }
 
+      // data will be null if no business exists, which is fine
       setBusiness(data);
       setEditedBusiness(data);
     } catch (error) {

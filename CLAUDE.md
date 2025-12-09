@@ -28,8 +28,7 @@ Required environment variables (see `.env.example`):
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous key (client-side)
 - `SUPABASE_SERVICE_KEY` - Supabase service role key (server-side)
 - `OPENAI_API_KEY` - OpenAI API key for the assistant
-- `N8N_WEBHOOK_URL_WEEKLY_SOCIAL_MEDIA_PACKAGE` - n8n webhook endpoint for social media packages
-- `NEXT_PUBLIC_N8N_WEBHOOK_URL_BUSINESS_WEBSITE_DNA` - n8n webhook for business website DNA
+- `N8N_WEBHOOK_URL_BUSINESS_WEBSITE_DNA` - n8n webhook for business website DNA
 - `N8N_WEBHOOK_URL_PRODUCT_DATA` - n8n webhook for product data scraping and analysis
 
 ## Architecture

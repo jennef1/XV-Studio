@@ -1,5 +1,9 @@
 import { supabaseBrowserClient } from "@/lib/supabaseClient";
 import type { SavedProject, SaveProjectData, FilterOptions } from "@/types/gallery";
+import {
+  createProjectTracking,
+  createEditHistoryEntry,
+} from "@/lib/tracking/trackingService";
 
 /**
  * Save a project to the database
@@ -46,6 +50,45 @@ export async function saveProject(data: SaveProjectData): Promise<{ success: boo
     }
 
     console.log("Project saved successfully:", project);
+
+    // NEW: Create project tracking if workflow is provided
+    if (data.generation_params?.workflow && project) {
+      const trackingResult = await createProjectTracking({
+        saved_project_id: project.id,
+        campaign_job_id: data.campaign_job_id || null,
+        workflow_type: data.generation_params.workflow,
+        product_category: data.generation_params.productCategory || null,
+        business_id: data.generation_params.businessId || null,
+        product_id: data.generation_params.productId || null,
+        generation_count: data.generation_params.generationCount || 1,
+        edit_count: 0,
+      });
+
+      if (trackingResult.success && trackingResult.tracking) {
+        console.log("Project tracking created:", trackingResult.tracking);
+
+        // Create initial edit history entry
+        await createEditHistoryEntry({
+          project_tracking_id: trackingResult.tracking.id,
+          saved_project_id: project.id,
+          edit_type: "generation",
+          edit_number: 1,
+          prompt: data.generation_params.prompt,
+          result_url: data.image_url,
+          metadata: {
+            aspectRatio: data.generation_params.aspectRatio,
+            resolution: data.generation_params.resolution,
+            outputFormat: data.generation_params.outputFormat,
+            selectedImage: data.generation_params.selectedImage,
+            productName: data.generation_params.productName,
+          },
+        });
+      } else {
+        console.warn("Failed to create project tracking:", trackingResult.error);
+        // Don't fail the save if tracking fails
+      }
+    }
+
     return { success: true, project: project as any };
   } catch (error: any) {
     console.error("Error in saveProject:", error);

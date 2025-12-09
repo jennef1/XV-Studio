@@ -19,11 +19,14 @@ export default function StudioPage() {
   const [showProducts, setShowProducts] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [checkingProfile, setCheckingProfile] = useState(true);
+  const [hasBusiness, setHasBusiness] = useState<boolean | null>(null);
+  const [isCheckingBusiness, setIsCheckingBusiness] = useState(true);
 
   // Check if user has a business profile on mount
   useEffect(() => {
     const checkBusinessProfile = async () => {
       try {
+        setIsCheckingBusiness(true);
         const { data: { user } } = await supabaseBrowserClient.auth.getUser();
 
         if (user) {
@@ -31,21 +34,45 @@ export default function StudioPage() {
             .from("businesses")
             .select("*")
             .eq("user_id", user.id)
-            .single();
+            .maybeSingle();
 
-          // If no business profile found, show onboarding
+          // If no business profile found, show onboarding and navigate to business profile view
           if (error || !business) {
             setShowOnboarding(true);
+            setHasBusiness(false);
+            setShowBusinessProfile(true);
+            setShowGallery(false);
+            setShowProducts(false);
+            setSelectedProductId(null);
+          } else {
+            setHasBusiness(true);
           }
         }
       } catch (err) {
         console.error("Error checking business profile:", err);
       } finally {
         setCheckingProfile(false);
+        setIsCheckingBusiness(false);
       }
     };
 
     checkBusinessProfile();
+  }, []);
+
+  // Add custom event listener for navigation from Business Profile to Products
+  useEffect(() => {
+    const handleNavigateToProducts = () => {
+      setShowProducts(true);
+      setShowBusinessProfile(false);
+      setShowGallery(false);
+      setSelectedProductId(null);
+    };
+
+    window.addEventListener('navigateToProducts', handleNavigateToProducts as EventListener);
+
+    return () => {
+      window.removeEventListener('navigateToProducts', handleNavigateToProducts as EventListener);
+    };
   }, []);
 
   const handleOnboardingClose = () => {
@@ -84,22 +111,44 @@ export default function StudioPage() {
     setSelectedProductId(null);
   };
 
+  // Show loading screen while checking for business profile
+  if (isCheckingBusiness) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-white dark:bg-gray-950">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Lade Studio...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
       <Sidebar
         selectedProductId={selectedProductId}
         onProductSelect={handleProductSelect}
         onGallerySelect={handleGallerySelect}
+        hasBusiness={hasBusiness || false}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header spacer for consistent top alignment */}
-        <div className="h-16 bg-white dark:bg-gray-900"></div>
+        <div className="h-16 bg-white dark:bg-gray-950"></div>
         {/* Main content area */}
         <div className="flex-1 flex overflow-hidden">
           {showBusinessProfile ? (
             // Show business profile view when Unternehmensprofil is selected
             <div className="flex-1">
-              <BusinessProfileView />
+              <BusinessProfileView
+                onNavigateToProducts={() => {
+                  setShowProducts(true);
+                  setShowBusinessProfile(false);
+                  setShowGallery(false);
+                }}
+                onBusinessCreated={() => {
+                  setHasBusiness(true);
+                }}
+              />
             </div>
           ) : showProducts ? (
             // Show products view when Angebot is selected

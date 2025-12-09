@@ -2,14 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Webhook URL mapping for different products
 const WEBHOOK_URLS: Record<number, string | undefined> = {
-  0: process.env.N8N_WEBHOOK_URL_MARKETINGBILDER_PROMPT_ONLY, // Will be selected based on payload
-  1: process.env.N8N_WEBHOOK_URL_WEEKLY_SOCIAL_MEDIA_PACKAGE,
+  0: process.env.N8N_WEBHOOK_BILDER_PROMPT_ONLY, // Will be selected based on payload
   2: process.env.N8N_WEBHOOK_URL_PRODUCT_VIDEO,
 };
 
 // Special webhooks for Marketingbilder/Bilder
-const BILDER_WITH_IMAGES_WEBHOOK = process.env.N8N_WEBHOOK_URL_MARKETINGBILDER_WITH_IMAGES;
-const BILDER_EDIT_IMAGE_WEBHOOK = process.env.N8N_WEBHOOK_URL_MARKETINGBILDER_EDIT_IMAGE;
+const BILDER_WITH_IMAGES_WEBHOOK = process.env.N8N_WEBHOOK_BILDER_WITH_IMAGES;
+const BILDER_EDIT_IMAGE_WEBHOOK = process.env.N8N_WEBHOOK_BILDER_EDIT_IMAGE;
 
 export async function POST(request: NextRequest) {
   try {

@@ -45,26 +45,21 @@ This document lists all required environment variables for deploying XV Studio t
 
 All webhook URLs must be **HTTPS** and publicly accessible. Since you're using n8n Cloud, these should be provided by your n8n workflows.
 
-#### `N8N_WEBHOOK_URL_MARKETINGBILDER_PROMPT_ONLY`
+#### `N8N_WEBHOOK_BILDER_PROMPT_ONLY`
 - **Type**: Server-side only
 - **Description**: Webhook for generating marketing images from text prompts only
 - **Format**: `https://[your-n8n-instance].app.n8n.cloud/webhook/[webhook-id]`
 - **Workflow**: Marketing images (prompt-only mode)
 
-#### `N8N_WEBHOOK_URL_MARKETINGBILDER_WITH_IMAGES`
+#### `N8N_WEBHOOK_BILDER_WITH_IMAGES`
 - **Type**: Server-side only
 - **Description**: Webhook for generating marketing images with reference images
 - **Workflow**: Marketing images (with uploaded reference images)
 
-#### `N8N_WEBHOOK_URL_MARKETINGBILDER_EDIT_IMAGE`
+#### `N8N_WEBHOOK_BILDER_EDIT_IMAGE`
 - **Type**: Server-side only
 - **Description**: Webhook for editing existing marketing images
 - **Workflow**: Image editing/refinement
-
-#### `N8N_WEBHOOK_URL_WEEKLY_SOCIAL_MEDIA_PACKAGE`
-- **Type**: Server-side only
-- **Description**: Webhook for generating weekly social media content packages
-- **Workflow**: Social media package generation
 
 #### `N8N_WEBHOOK_URL_PRODUCT_VIDEO`
 - **Type**: Server-side only
@@ -77,16 +72,21 @@ All webhook URLs must be **HTTPS** and publicly accessible. Since you're using n
 - **Description**: Webhook for scraping and analyzing product data from URLs
 - **Workflow**: Product data extraction
 
-#### `N8N_WEBHOOK_IMAGES_TO_VIDEO_GENERATION`
+#### `N8N_WEBHOOK_VIDEO_FROM_REFERENCE_IMAGES`
 - **Type**: Server-side only
 - **Description**: Webhook for converting images to video
 - **Workflow**: Image-to-video generation
 
-#### `NEXT_PUBLIC_N8N_WEBHOOK_URL_BUSINESS_WEBSITE_DNA`
-- **Type**: Client-side (publicly accessible)
+#### `N8N_WEBHOOK_VIDEO_8S_PRODUCT_REAL_LIVE`
+- **Type**: Server-side only
+- **Description**: Webhook for "User Speaks" 8-second product videos where a person speaks about the product
+- **Workflow**: Social Media Boost - User speaks to product
+- **Note**: Generates 8-second videos with a person presenting the product based on user prompt
+
+#### `N8N_WEBHOOK_URL_BUSINESS_WEBSITE_DNA`
+- **Type**: Server-side only
 - **Description**: Webhook for analyzing business website and creating business profile
 - **Workflow**: Business DNA extraction from website
-- **Note**: This is the ONLY n8n webhook that's client-side accessible
 
 ---
 
@@ -128,14 +128,14 @@ Before deploying, verify you have all 12 variables:
 - [ ] `OPENAI_API_KEY`
 
 ### n8n Webhooks (8)
-- [ ] `N8N_WEBHOOK_URL_MARKETINGBILDER_PROMPT_ONLY`
-- [ ] `N8N_WEBHOOK_URL_MARKETINGBILDER_WITH_IMAGES`
-- [ ] `N8N_WEBHOOK_URL_MARKETINGBILDER_EDIT_IMAGE`
-- [ ] `N8N_WEBHOOK_URL_WEEKLY_SOCIAL_MEDIA_PACKAGE`
+- [ ] `N8N_WEBHOOK_BILDER_PROMPT_ONLY`
+- [ ] `N8N_WEBHOOK_BILDER_WITH_IMAGES`
+- [ ] `N8N_WEBHOOK_BILDER_EDIT_IMAGE`
 - [ ] `N8N_WEBHOOK_URL_PRODUCT_VIDEO`
 - [ ] `N8N_WEBHOOK_URL_PRODUCT_DATA`
-- [ ] `N8N_WEBHOOK_IMAGES_TO_VIDEO_GENERATION`
-- [ ] `NEXT_PUBLIC_N8N_WEBHOOK_URL_BUSINESS_WEBSITE_DNA`
+- [ ] `N8N_WEBHOOK_VIDEO_FROM_REFERENCE_IMAGES`
+- [ ] `N8N_WEBHOOK_VIDEO_8S_PRODUCT_REAL_LIVE`
+- [ ] `N8N_WEBHOOK_URL_BUSINESS_WEBSITE_DNA`
 
 **Total: 12 environment variables**
 
@@ -151,14 +151,14 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_KEY=
 OPENAI_API_KEY=
-N8N_WEBHOOK_URL_MARKETINGBILDER_PROMPT_ONLY=
-N8N_WEBHOOK_URL_MARKETINGBILDER_WITH_IMAGES=
-N8N_WEBHOOK_URL_MARKETINGBILDER_EDIT_IMAGE=
-N8N_WEBHOOK_URL_WEEKLY_SOCIAL_MEDIA_PACKAGE=
+N8N_WEBHOOK_BILDER_PROMPT_ONLY=
+N8N_WEBHOOK_BILDER_WITH_IMAGES=
+N8N_WEBHOOK_BILDER_EDIT_IMAGE=
 N8N_WEBHOOK_URL_PRODUCT_VIDEO=
 N8N_WEBHOOK_URL_PRODUCT_DATA=
-N8N_WEBHOOK_IMAGES_TO_VIDEO_GENERATION=
-NEXT_PUBLIC_N8N_WEBHOOK_URL_BUSINESS_WEBSITE_DNA=
+N8N_WEBHOOK_VIDEO_FROM_REFERENCE_IMAGES=
+N8N_WEBHOOK_VIDEO_8S_PRODUCT_REAL_LIVE=
+N8N_WEBHOOK_URL_BUSINESS_WEBSITE_DNA=
 ```
 
 **Note**: `.env.local` is already in `.gitignore` and will not be committed.

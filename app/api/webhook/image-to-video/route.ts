@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     // Validate single image
     if (!selectedImage || typeof selectedImage !== 'string') {
       return NextResponse.json(
-        { error: "Genau ein Bild ist erforderlich" },
+        { error: "Ein Bild ist erforderlich" },
         { status: 400 }
       );
     }
@@ -39,17 +39,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Get webhook URL from environment
-    const webhookUrl = process.env.N8N_WEBHOOK_VIDEO_8S_PRODUCT_ROTATION;
+    const webhookUrl = process.env.N8N_WEBHOOK_VIDEO_8S_PRODUCT_FREE_BIRD;
 
     if (!webhookUrl) {
-      console.error("N8N_WEBHOOK_VIDEO_8S_PRODUCT_ROTATION is not configured");
+      console.error("N8N_WEBHOOK_VIDEO_8S_PRODUCT_FREE_BIRD is not configured");
       return NextResponse.json(
         { error: "Webhook-Konfiguration fehlt" },
         { status: 500 }
       );
     }
 
-    console.log("Creating product rotation video generation job");
+    console.log("Creating image to video generation job");
     console.log("- Product ID:", productId);
     console.log("- Prompt length:", prompt.length);
 
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
         job_type: "product_video",
         status: "processing",
         request_data: {
-          workflow: "product_rotation",
+          workflow: "image_to_video",
           selectedImage,
           prompt,
         },
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (jobError || !jobData) {
-      console.error("Failed to create product rotation job:", jobError);
+      console.error("Failed to create image to video job:", jobError);
       console.error("Error details:", JSON.stringify(jobError, null, 2));
       return NextResponse.json(
         {
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
 
     const jobId = jobData.id;
-    console.log("Created product rotation video job:", jobId);
+    console.log("Created image to video job:", jobId);
 
     // Prepare data for n8n webhook
     const payload = {
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       prompt,
     };
 
-    console.log("=== PRODUCT ROTATION VIDEO WEBHOOK REQUEST DEBUG ===");
+    console.log("=== IMAGE TO VIDEO WEBHOOK REQUEST DEBUG ===");
     console.log("Method: POST");
     console.log("URL:", webhookUrl);
     console.log("Job ID:", jobId);
@@ -124,16 +124,16 @@ export async function POST(request: NextRequest) {
     });
 
     // Return immediately with job ID
-    console.log("Product rotation video job created and started");
+    console.log("Image to video job created and started");
     return NextResponse.json({
       success: true,
       jobId,
       status: "processing",
-      message: "Product Rotation Video-Erstellung wurde gestartet",
+      message: "Video-Erstellung wurde gestartet",
     });
 
   } catch (error: any) {
-    console.error("Error in product-rotation webhook:", error);
+    console.error("Error in image-to-video webhook:", error);
     return NextResponse.json(
       {
         error: "Ein unerwarteter Fehler ist aufgetreten",

@@ -129,7 +129,7 @@ export default function PreviewPanel({ mediaUrl, productType, generationParams }
       const result = await saveProject({
         project_name: projectName,
         product_type: productType,
-        image_url: isVideo ? '' : mediaUrl, // Empty string for videos, actual URL for images
+        image_url: mediaUrl, // Store video URL here too for videos (required field)
         video_url: isVideo ? mediaUrl : null, // Video URL for videos, null for images
         thumbnail_url: null, // Could generate a thumbnail in the future
         generation_params: generationParams,

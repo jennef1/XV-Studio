@@ -47,7 +47,7 @@ export default function ProductSelectionCards({
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 my-4">
+    <div className="grid grid-cols-3 gap-2.5 my-4">
       {products.map((product) => {
         const firstImage = getFirstImage(product);
         const isSelected = selectedProductId === product.id;
@@ -56,56 +56,47 @@ export default function ProductSelectionCards({
           <button
             key={product.id}
             onClick={() => handleProductClick(product)}
-            className={`p-4 rounded-2xl border-2 transition-all flex items-center gap-3 text-left ${
+            className={`group relative border-2 rounded-2xl overflow-hidden transition-all hover:shadow-lg ${
               isSelected
                 ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20"
-                : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-purple-300 dark:hover:border-purple-600"
+                : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-purple-400 dark:hover:border-purple-500"
             }`}
           >
             {/* Product Image */}
-            {firstImage ? (
-              <div className="w-16 h-16 rounded-xl bg-gray-200 dark:bg-gray-700 overflow-hidden flex-shrink-0">
+            <div className="aspect-square bg-gray-100 dark:bg-gray-900 relative overflow-hidden">
+              {firstImage ? (
                 <Image
                   src={firstImage}
                   alt={product.product_name || "Product"}
-                  width={64}
-                  height={64}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  unoptimized
                 />
-              </div>
-            ) : (
-              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-400 to-pink-400 flex-shrink-0 flex items-center justify-center">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-              </div>
-            )}
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-400 to-pink-400">
+                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                  </svg>
+                </div>
+              )}
+            </div>
 
             {/* Product Name */}
-            <div className="flex-1 min-w-0">
-              <p className={`font-medium text-sm truncate ${
+            <div className="p-2.5">
+              <p className={`text-xs font-medium truncate ${
                 isSelected
                   ? "text-purple-900 dark:text-purple-100"
-                  : "text-gray-900 dark:text-white"
+                  : "text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400"
               }`}>
                 {product.product_name || "Unbenanntes Produkt"}
               </p>
-              {product.product_description && (
-                <p className={`text-xs mt-1 line-clamp-2 ${
-                  isSelected
-                    ? "text-purple-700 dark:text-purple-300"
-                    : "text-gray-500 dark:text-gray-400"
-                }`}>
-                  {product.product_description}
-                </p>
-              )}
             </div>
 
             {/* Selection Indicator */}
             {isSelected && (
-              <div className="flex-shrink-0">
-                <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="absolute top-2 right-2">
+                <div className="w-5 h-5 bg-purple-600 rounded-full flex items-center justify-center shadow-lg">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>

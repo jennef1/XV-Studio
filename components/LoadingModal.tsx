@@ -11,7 +11,7 @@ interface LoadingModalProps {
 export default function LoadingModal({
   isOpen,
   businessUrl,
-  estimatedTimeMinutes = 2,
+  estimatedTimeMinutes = 10,
 }: LoadingModalProps) {
   const [timeLeft, setTimeLeft] = useState(estimatedTimeMinutes);
   const [showCircle, setShowCircle] = useState(false);
@@ -69,13 +69,13 @@ export default function LoadingModal({
 
           {/* Title */}
           <h2 className="text-2xl md:text-3xl font-bold text-center mb-3 text-gray-900 dark:text-white">
-            Erstelle deine Business DNA
+            Erstelle dein Unternehmensprofil
           </h2>
 
           {/* Subtitle */}
           <p className="text-center text-sm text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
-            Wir analysieren deine Webseite und erstellen deine Business DNA.<br />
-            Dies kann bis zu 2 Minuten dauern.
+            Wir analysieren deine Webseite und erstellen dein Unternehmensprofil mit Angeboten.<br />
+            Dies kann bis zu 10 Minuten dauern.
           </p>
 
           {/* Status indicator */}

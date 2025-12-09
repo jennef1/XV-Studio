@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { supabaseBrowserClient } from "@/lib/supabaseClient";
 import { Database } from "@/types/database";
 
@@ -24,6 +25,8 @@ export default function ProductsView() {
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -337,6 +340,33 @@ export default function ProductsView() {
     }
   };
 
+  const handleDeleteProduct = async () => {
+    if (!selectedProduct) return;
+
+    setIsDeleting(true);
+
+    try {
+      const { error } = await supabaseBrowserClient
+        .from("business_products")
+        .delete()
+        .eq("id", selectedProduct.id);
+
+      if (error) throw error;
+
+      // Refresh the product list
+      await fetchProducts();
+
+      // Reset selection
+      setSelectedProduct(null);
+      setShowDeleteConfirm(false);
+    } catch (error: any) {
+      console.error("Error deleting product:", error);
+      alert("Fehler beim Löschen des Produkts. Bitte versuche es erneut.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-white dark:bg-gray-950">
@@ -363,12 +393,12 @@ export default function ProductsView() {
           <p className="text-gray-600 dark:text-gray-400 mb-6">
             Du musst zuerst ein Firmenprofil erstellen, bevor du Produkte hinzufügen kannst.
           </p>
-          <a
+          <Link
             href="/"
             className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
             Zur Startseite
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -537,6 +567,19 @@ export default function ProductsView() {
                   </div>
                 </div>
               )}
+
+              {/* Delete Button */}
+              <div className="mt-8">
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="px-6 py-3 bg-red-600 dark:bg-red-700 text-white rounded-2xl font-medium hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Löschen
+                </button>
+              </div>
             </div>
           )}
 
@@ -875,6 +918,47 @@ export default function ProductsView() {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && selectedProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl max-w-md w-full mx-4 p-8 border-2 border-gray-200 dark:border-gray-800">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0">
+                <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Produkt löschen?
+                </h3>
+              </div>
+            </div>
+
+            <p className="text-gray-700 dark:text-gray-300 mb-8 leading-relaxed">
+              Bist du sicher, dass du <strong>{selectedProduct.product_name}</strong> löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="flex-1 px-6 py-3 bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white font-medium rounded-2xl hover:bg-gray-300 dark:hover:bg-gray-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleDeleteProduct}
+                disabled={isDeleting}
+                className="flex-1 px-6 py-3 bg-red-600 dark:bg-red-700 text-white font-medium rounded-2xl hover:bg-red-700 dark:hover:bg-red-800 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? "Wird gelöscht..." : "Löschen"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

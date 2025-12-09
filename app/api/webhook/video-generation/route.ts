@@ -38,10 +38,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Get webhook URL from environment
-    const webhookUrl = process.env.N8N_WEBHOOK_IMAGES_TO_VIDEO_GENERATION;
+    const webhookUrl = process.env.N8N_WEBHOOK_VIDEO_FROM_REFERENCE_IMAGES;
 
     if (!webhookUrl) {
-      console.error("N8N_WEBHOOK_IMAGES_TO_VIDEO_GENERATION is not configured");
+      console.error("N8N_WEBHOOK_VIDEO_FROM_REFERENCE_IMAGES is not configured");
       return NextResponse.json(
         { error: "Webhook-Konfiguration fehlt" },
         { status: 500 }

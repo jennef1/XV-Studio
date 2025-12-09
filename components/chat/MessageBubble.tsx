@@ -40,6 +40,11 @@ interface MessageBubbleProps {
   onSocialBoostSubWorkflowSelection?: (subWorkflow: "product-rotation" | "user-speaks" | "image-to-video") => void;
   onProductRotationImageSelection?: (imageUrl: string) => void;
   onAiExplainsImageSelection?: (imageUrl: string) => void;
+  onUserSpeaksImageSelection?: (imageUrl: string) => void;
+  // Image to Video workflow handlers
+  onImageToVideoImageSelection?: (imageUrl: string) => void;
+  onImageToVideoInspiration?: () => void;
+  onImageToVideoPromptIdeaSelect?: (idea: string) => void;
 }
 
 export default function MessageBubble({
@@ -61,6 +66,10 @@ export default function MessageBubble({
   onSocialBoostSubWorkflowSelection,
   onProductRotationImageSelection,
   onAiExplainsImageSelection,
+  onUserSpeaksImageSelection,
+  onImageToVideoImageSelection,
+  onImageToVideoInspiration,
+  onImageToVideoPromptIdeaSelect,
 }: MessageBubbleProps) {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
 
@@ -319,6 +328,10 @@ export default function MessageBubble({
     showVideoProductSelector: boolean;
     productRotationImageSelectorData: { images: string[]; productName: string } | null;
     aiExplainsImageSelectorData: { images: string[]; productName: string } | null;
+    userSpeaksImageSelectorData: { images: string[]; productName: string } | null;
+    imageToVideoImageSelectorData: { images: string[]; productName: string } | null;
+    showImageToVideoInspireButton: boolean;
+    imageToVideoPromptIdeas: string[] | null;
   } => {
     let cleanMsg = msg;
     let showVideoWorkflowSelector = false;
@@ -326,6 +339,10 @@ export default function MessageBubble({
     let showVideoProductSelector = false;
     let productRotationImageSelectorData = null;
     let aiExplainsImageSelectorData = null;
+    let userSpeaksImageSelectorData = null;
+    let imageToVideoImageSelectorData = null;
+    let showImageToVideoInspireButton = false;
+    let imageToVideoPromptIdeas = null;
 
     // Check for [VIDEO_WORKFLOW_SELECTOR]
     if (cleanMsg.includes('[VIDEO_WORKFLOW_SELECTOR]')) {
@@ -409,6 +426,109 @@ export default function MessageBubble({
       }
     }
 
+    // Check for [USER_SPEAKS_IMAGE_SELECTOR:{...}]
+    const userSpeaksMarker = '[USER_SPEAKS_IMAGE_SELECTOR:';
+    const userSpeaksStart = cleanMsg.indexOf(userSpeaksMarker);
+    if (userSpeaksStart !== -1) {
+      let braceCount = 0;
+      let endIndex = -1;
+      let i = userSpeaksStart + userSpeaksMarker.length;
+
+      for (; i < cleanMsg.length; i++) {
+        if (cleanMsg[i] === '{') {
+          braceCount++;
+        } else if (cleanMsg[i] === '}') {
+          braceCount--;
+          if (braceCount === 0) {
+            endIndex = i;
+            break;
+          }
+        }
+      }
+
+      if (endIndex !== -1 && cleanMsg[endIndex + 1] === ']') {
+        const jsonStr = cleanMsg.substring(userSpeaksStart + userSpeaksMarker.length, endIndex + 1);
+        try {
+          userSpeaksImageSelectorData = JSON.parse(jsonStr);
+          const fullMarker = cleanMsg.substring(userSpeaksStart, endIndex + 2);
+          cleanMsg = cleanMsg.replace(fullMarker, '').trim();
+        } catch (error) {
+          console.error("Error parsing User Speaks image selector data:", error, "JSON:", jsonStr);
+        }
+      }
+    }
+
+    // Check for [IMAGE_TO_VIDEO_IMAGE_SELECTOR:{...}]
+    const imageToVideoMarker = '[IMAGE_TO_VIDEO_IMAGE_SELECTOR:';
+    const imageToVideoStart = cleanMsg.indexOf(imageToVideoMarker);
+    if (imageToVideoStart !== -1) {
+      let braceCount = 0;
+      let endIndex = -1;
+      let i = imageToVideoStart + imageToVideoMarker.length;
+
+      for (; i < cleanMsg.length; i++) {
+        if (cleanMsg[i] === '{') {
+          braceCount++;
+        } else if (cleanMsg[i] === '}') {
+          braceCount--;
+          if (braceCount === 0) {
+            endIndex = i;
+            break;
+          }
+        }
+      }
+
+      if (endIndex !== -1 && cleanMsg[endIndex + 1] === ']') {
+        const jsonStr = cleanMsg.substring(imageToVideoStart + imageToVideoMarker.length, endIndex + 1);
+        try {
+          imageToVideoImageSelectorData = JSON.parse(jsonStr);
+          const fullMarker = cleanMsg.substring(imageToVideoStart, endIndex + 2);
+          cleanMsg = cleanMsg.replace(fullMarker, '').trim();
+        } catch (error) {
+          console.error("Error parsing Image to Video image selector data:", error, "JSON:", jsonStr);
+        }
+      }
+    }
+
+    // Check for [IMAGE_TO_VIDEO_INSPIRIERE_MICH]
+    if (cleanMsg.includes('[IMAGE_TO_VIDEO_INSPIRIERE_MICH]')) {
+      showImageToVideoInspireButton = true;
+      cleanMsg = cleanMsg.replace('[IMAGE_TO_VIDEO_INSPIRIERE_MICH]', '').trim();
+    }
+
+    // Check for [IMAGE_TO_VIDEO_PROMPT_IDEAS:{...}]
+    const promptIdeasMarker = '[IMAGE_TO_VIDEO_PROMPT_IDEAS:';
+    const promptIdeasStart = cleanMsg.indexOf(promptIdeasMarker);
+    if (promptIdeasStart !== -1) {
+      let braceCount = 0;
+      let endIndex = -1;
+      let i = promptIdeasStart + promptIdeasMarker.length;
+
+      for (; i < cleanMsg.length; i++) {
+        if (cleanMsg[i] === '{') {
+          braceCount++;
+        } else if (cleanMsg[i] === '}') {
+          braceCount--;
+          if (braceCount === 0) {
+            endIndex = i;
+            break;
+          }
+        }
+      }
+
+      if (endIndex !== -1 && cleanMsg[endIndex + 1] === ']') {
+        const jsonStr = cleanMsg.substring(promptIdeasStart + promptIdeasMarker.length, endIndex + 1);
+        try {
+          const data = JSON.parse(jsonStr);
+          imageToVideoPromptIdeas = data.ideas || null;
+          const fullMarker = cleanMsg.substring(promptIdeasStart, endIndex + 2);
+          cleanMsg = cleanMsg.replace(fullMarker, '').trim();
+        } catch (error) {
+          console.error("Error parsing Image to Video prompt ideas:", error, "JSON:", jsonStr);
+        }
+      }
+    }
+
     return {
       cleanMessage: cleanMsg,
       showVideoWorkflowSelector,
@@ -416,6 +536,10 @@ export default function MessageBubble({
       showVideoProductSelector,
       productRotationImageSelectorData,
       aiExplainsImageSelectorData,
+      userSpeaksImageSelectorData,
+      imageToVideoImageSelectorData,
+      showImageToVideoInspireButton,
+      imageToVideoPromptIdeas,
     };
   };
 
@@ -442,6 +566,10 @@ export default function MessageBubble({
     showVideoProductSelector,
     productRotationImageSelectorData,
     aiExplainsImageSelectorData,
+    userSpeaksImageSelectorData,
+    imageToVideoImageSelectorData,
+    showImageToVideoInspireButton,
+    imageToVideoPromptIdeas,
   } = parseVideoWorkflowMarkers(msgAfterBilder);
   const allImageUrls = [...(imageUrls || []), ...parsedImageUrls];
 
@@ -514,7 +642,7 @@ export default function MessageBubble({
       initial="hidden"
       animate="visible"
     >
-      <div className={`flex gap-3 ${products && products.length > 0 ? "max-w-full" : "max-w-[80%]"} ${isUser ? "flex-row-reverse" : "flex-row"}`}>
+      <div className={`flex gap-3 max-w-[75%] ${isUser ? "flex-row-reverse" : "flex-row"}`}>
         {!isUser && (
           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -699,6 +827,122 @@ export default function MessageBubble({
                   </motion.div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Display User Speaks image selector (single image selection) */}
+          {userSpeaksImageSelectorData && !isUser && onUserSpeaksImageSelection && (
+            <div className="mt-3">
+              <div className="mb-2 text-sm text-gray-700 dark:text-gray-300 font-medium">
+                Wähle ein Bild für dein Video:
+              </div>
+              <div className="grid grid-cols-3 gap-2.5">
+                {userSpeaksImageSelectorData.images.map((imageUrl, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.1 * idx }}
+                    className="relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 border-transparent hover:border-orange-500 transition-all"
+                    onClick={() => onUserSpeaksImageSelection(imageUrl)}
+                  >
+                    <img
+                      src={imageUrl}
+                      alt={`${userSpeaksImageSelectorData.productName} - Bild ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-opacity flex items-center justify-center">
+                      <div className="opacity-0 hover:opacity-100 transition-opacity bg-orange-600 text-white px-3 py-1 rounded-full text-sm">
+                        Auswählen
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Image to Video - Image Selector */}
+          {imageToVideoImageSelectorData && !isUser && onImageToVideoImageSelection && (
+            <div className="mt-3">
+              <div className="mb-2 text-sm text-gray-700 dark:text-gray-300 font-medium">
+                Wähle ein Bild für dein Video:
+              </div>
+              <div className="grid grid-cols-3 gap-2.5">
+                {imageToVideoImageSelectorData.images.map((imageUrl, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.1 * idx }}
+                    className="relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 border-transparent hover:border-cyan-500 dark:hover:border-cyan-400 transition-all"
+                    onClick={() => onImageToVideoImageSelection(imageUrl)}
+                  >
+                    <img
+                      src={imageUrl}
+                      alt={`${imageToVideoImageSelectorData.productName} - Bild ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-opacity flex items-center justify-center">
+                      <div className="opacity-0 hover:opacity-100 transition-opacity bg-cyan-600 text-white px-3 py-1 rounded-full text-sm">
+                        Auswählen
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Image to Video - "Inspiriere mich" Button */}
+          {showImageToVideoInspireButton && !isUser && onImageToVideoInspiration && (
+            <div className="mt-3 flex justify-end">
+              <motion.button
+                onClick={onImageToVideoInspiration}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ scale: 1.05 }}
+                className="relative px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 shadow-md hover:shadow-lg transition-all duration-300 border-2 border-transparent dark:border-transparent"
+                style={{
+                  backgroundImage: 'linear-gradient(white, white), linear-gradient(to right, #a855f7, #ec4899, #f97316)',
+                  backgroundOrigin: 'border-box',
+                  backgroundClip: 'padding-box, border-box',
+                }}
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                  <defs>
+                    <linearGradient id="sparkle-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#a855f7" />
+                      <stop offset="50%" stopColor="#ec4899" />
+                      <stop offset="100%" stopColor="#f97316" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.582a.5.5 0 0 1 0 .962L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" fill="url(#sparkle-gradient)"/>
+                  <path d="M20 3v4m-2-2h4M6 11v2m-1-1h2" stroke="url(#sparkle-gradient)" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                <span className="bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-transparent bg-clip-text font-semibold">
+                  Inspiriere mich
+                </span>
+              </motion.button>
+            </div>
+          )}
+
+          {/* Image to Video - Prompt Ideas as Clickable Buttons */}
+          {imageToVideoPromptIdeas && imageToVideoPromptIdeas.length > 0 && !isUser && onImageToVideoPromptIdeaSelect && (
+            <div className="mt-3 space-y-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">💡 Vorschläge:</p>
+              {imageToVideoPromptIdeas.map((idea, idx) => (
+                <motion.button
+                  key={idx}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 * idx }}
+                  onClick={() => onImageToVideoPromptIdeaSelect(idea)}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-cyan-400 dark:hover:border-cyan-500 text-left text-sm transition-all duration-200 hover:shadow-lg bg-white dark:bg-gray-800"
+                >
+                  {idea}
+                </motion.button>
+              ))}
             </div>
           )}
 
