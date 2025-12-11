@@ -117,15 +117,12 @@ export default function GalleryView() {
 
   return (
     <div className="h-full bg-gray-50 dark:bg-gray-950 overflow-hidden flex flex-col">
-      <div className="flex-shrink-0 px-8 pt-8 pb-6">
+      <div className="flex-shrink-0 px-8 pt-16 pb-6">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
             Meine Projekte
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Verwalte und durchsuche deine erstellten Projekte
-          </p>
         </div>
 
         {/* Error state */}

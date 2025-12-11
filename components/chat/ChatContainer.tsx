@@ -36,7 +36,7 @@ interface ConversationState {
   selectedVideoImages?: string[];
   // Social Media Campaign state
   campaignState?: {
-    type: "product" | "concept" | null;
+    type: "product" | "concept" | "political" | null;
     selectedProduct: any | null;
     selectedImage: string | null;
     generatedImages: string[];
@@ -53,7 +53,7 @@ interface ConversationState {
   // Video workflow state
   videoWorkflowState?: {
     workflow: "social-booster" | "inspirational" | "ai-explains" | null;
-    subWorkflow?: "product-rotation" | "user-speaks" | "image-to-video";
+    subWorkflow?: "product-rotation" | "user-speaks" | "image-to-video" | "political-campaign";
     selectedProduct: any | null;
     selectedImage: string | null;
     scenarioDescription: string | null;
@@ -82,12 +82,12 @@ const PRODUCT_CONFIGS: Record<number, { name: string; greeting: string }> = {
     greeting: "Hallo! Ich helfe dir dabei, grossartige Marketingbilder für dein Geschäft zu erstellen.\n\nWähle aus, wie du vorgehen möchtest:\n\n[BILDER_WORKFLOW_SELECTOR]",
   },
   1: {
-    name: "Social Media Paket",
+    name: "Social Media Boost",
     greeting: "Hey! Ich helfe dir dabei, professionelle Social Media Kampagnen zu erstellen.\n\nWähle aus, wie du vorgehen möchtest:\n\n[CAMPAIGN_TYPE_SELECTOR]",
   },
   2: {
     name: "Video",
-    greeting: "Hallo! Ich helfe dir dabei, ein professionelles Video zu erstellen.\n\nWähle aus, wie du vorgehen möchtest:\n\n[VIDEO_WORKFLOW_SELECTOR]",
+    greeting: "Hallo! Ich helfe dir dabei, professionelle Videos zu erstellen.\n\n**Wähle aus, was du erstellen möchtest:**\n\n[VIDEO_WORKFLOW_SELECTOR]",
   },
 };
 
@@ -2141,7 +2141,7 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
 
   // ===== SOCIAL MEDIA CAMPAIGN HANDLERS =====
 
-  const handleCampaignTypeSelection = (type: "product" | "concept") => {
+  const handleCampaignTypeSelection = (type: "product" | "concept" | "political") => {
     setCurrentState(prev => ({
       ...prev,
       campaignState: {
@@ -2155,6 +2155,8 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
           role: "assistant",
           content: type === "product"
             ? "Perfekt! Wähle das Produkt aus, für das du eine Kampagne erstellen möchtest:\n\n[CAMPAIGN_PRODUCT_SELECTOR]"
+            : type === "political"
+            ? "Diese Funktion ist noch in Entwicklung und wird bald verfügbar sein."
             : "Super! Beschreibe deine Kampagnenidee und ich generiere passende Bilder für dich.",
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
@@ -2761,31 +2763,85 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
     }
   };
 
-  const handleVideoWorkflowSelection = async (workflow: "social-booster" | "inspirational" | "ai-explains") => {
-    // Special handling for Social Media Boost - show sub-workflow selector
-    if (workflow === "social-booster") {
+  const handleVideoWorkflowSelection = async (workflow: "product-rotation" | "user-speaks" | "image-to-video" | "inspirational" | "ai-explains") => {
+    // Handle the three social boost sub-workflows (product-rotation, user-speaks, image-to-video)
+    if (workflow === "product-rotation" || workflow === "user-speaks" || workflow === "image-to-video") {
+      console.log("[Video Workflow] Selected social boost sub-workflow:", workflow);
+
+      // Store the sub-workflow in state and set waitingFor to "product"
       setCurrentState(prev => ({
         ...prev,
         videoWorkflowState: {
           ...prev.videoWorkflowState,
-          workflow,
+          workflow: "social-booster",
+          subWorkflow: workflow,
           selectedProduct: null,
           selectedImage: null,
           scenarioDescription: null,
           personDescription: null,
           actionDescription: null,
-          waitingFor: null,
+          waitingFor: "product",
         },
-        messages: [
-          ...prev.messages,
-          {
-            id: Date.now().toString(),
-            role: "assistant",
-            content: "Super! Wähle aus, wie dein Social Media Boost Video aussehen soll:\n\n[SOCIAL_BOOST_SUB_WORKFLOW_SELECTOR]",
-            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          },
-        ],
       }));
+
+      // Show products for the selected sub-workflow
+      try {
+        const { data: userData } = await supabaseBrowserClient.auth.getUser();
+
+        if (userData?.user) {
+          const { getAllUserBusinessProducts } = await import("@/lib/database");
+          const products = await getAllUserBusinessProducts(userData.user.id);
+
+          if (products && products.length > 0) {
+            const productData = products.map(p => ({
+              id: p.id,
+              product_name: p.product_name,
+              product_description: p.product_description,
+              product_images: p.product_images
+            }));
+
+            setCurrentState(prev => ({
+              ...prev,
+              messages: [
+                ...prev.messages,
+                {
+                  id: Date.now().toString(),
+                  role: "assistant",
+                  content: `Perfekt! Wähle ein Produkt aus deinem Katalog:\n\n[PRODUCT_SELECTION:${JSON.stringify(productData)}]`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                },
+              ],
+            }));
+          } else {
+            setCurrentState(prev => ({
+              ...prev,
+              messages: [
+                ...prev.messages,
+                {
+                  id: Date.now().toString(),
+                  role: "assistant",
+                  content: "Du hast noch keine Produkte in deinem Katalog. Bitte füge zuerst ein Produkt hinzu, bevor du ein Video erstellst.",
+                  timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                },
+              ],
+            }));
+          }
+        }
+      } catch (error) {
+        console.error("Error loading products for social boost workflow:", error);
+        setCurrentState(prev => ({
+          ...prev,
+          messages: [
+            ...prev.messages,
+            {
+              id: Date.now().toString(),
+              role: "assistant",
+              content: "Es gab einen Fehler beim Laden deiner Produkte. Bitte versuche es erneut.",
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            },
+          ],
+        }));
+      }
       return;
     }
 
@@ -2932,8 +2988,25 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
     }
   };
 
-  const handleSocialBoostSubWorkflowSelection = async (subWorkflow: "product-rotation" | "user-speaks" | "image-to-video") => {
+  const handleSocialBoostSubWorkflowSelection = async (subWorkflow: "product-rotation" | "user-speaks" | "image-to-video" | "political-campaign") => {
     console.log("[Social Boost Sub-Workflow] Selected:", subWorkflow);
+
+    // If political-campaign is selected, show coming soon message and return
+    if (subWorkflow === "political-campaign") {
+      setCurrentState(prev => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "Diese Funktion ist noch in Entwicklung und wird bald verfügbar sein.",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      }));
+      return;
+    }
 
     // Store the sub-workflow in state and set waitingFor to "product"
     setCurrentState(prev => ({
@@ -4021,7 +4094,7 @@ Wähle jetzt EIN Bild aus, das im Video verwendet werden soll:
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-950">
       <ChatMessages
         messages={currentState.messages}
         onImageSelection={selectedProductId === 0 || selectedProductId === 2 ? handleImageSelection : undefined}

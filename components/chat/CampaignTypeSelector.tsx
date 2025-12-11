@@ -1,78 +1,90 @@
 "use client";
 
 interface CampaignTypeSelectorProps {
-  onSelectType: (type: "product" | "concept") => void;
+  onSelectType: (type: "product" | "concept" | "political") => void;
 }
 
 export default function CampaignTypeSelector({ onSelectType }: CampaignTypeSelectorProps) {
+  const types = [
+    {
+      id: "product" as const,
+      title: "Produkte Kampagnen",
+      icon: "📱",
+      gradient: "from-blue-400 to-purple-400",
+      borderHover: "hover:border-blue-400 dark:hover:border-blue-500",
+      textHover: "group-hover:text-blue-600 dark:group-hover:text-blue-400",
+      recommended: true,
+      comingSoon: false,
+    },
+    {
+      id: "concept" as const,
+      title: "Konzept Kampagne",
+      icon: "⭐",
+      gradient: "from-purple-400 to-pink-400",
+      borderHover: "hover:border-purple-400 dark:hover:border-purple-500",
+      textHover: "group-hover:text-purple-600 dark:group-hover:text-purple-400",
+      recommended: false,
+      comingSoon: false,
+    },
+    {
+      id: "political" as const,
+      title: "Politische Kampagne",
+      icon: "🗳️",
+      gradient: "from-orange-400 to-red-400",
+      borderHover: "hover:border-orange-400 dark:hover:border-orange-500",
+      textHover: "group-hover:text-orange-600 dark:group-hover:text-orange-400",
+      recommended: false,
+      comingSoon: true,
+    },
+  ];
+
   return (
-    <div className="flex flex-col gap-4 my-4">
-      {/* Product Campaign Button */}
-      <button
-        onClick={() => onSelectType("product")}
-        className="group relative overflow-hidden bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl p-6 hover:border-blue-400 dark:hover:border-blue-500 transition-all hover:shadow-lg"
-      >
-        <div className="flex items-start gap-4">
-          {/* Icon/Emoji */}
-          <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/40 dark:to-purple-900/40 rounded-2xl flex items-center justify-center text-4xl">
-            📱
-          </div>
+    <div className="w-full sm:w-[480px] lg:w-[672px]">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 my-4">
+        {types.map((type) => (
+          <button
+            key={type.id}
+            onClick={() => !type.comingSoon && onSelectType(type.id)}
+            disabled={type.comingSoon}
+            className={`group relative border-2 rounded-2xl overflow-hidden transition-all border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${
+              type.comingSoon
+                ? 'opacity-60 cursor-not-allowed'
+                : `hover:shadow-lg ${type.borderHover}`
+            }`}
+          >
+            {/* Image Preview Placeholder */}
+            <div className="aspect-square bg-gray-100 dark:bg-gray-900 relative overflow-hidden">
+              {/* Gradient Background with Icon */}
+              <div className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${type.gradient}`}>
+                <span className="text-6xl opacity-90">{type.icon}</span>
+              </div>
 
-          {/* Content */}
-          <div className="flex-1 text-left">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-              Produkte Kampagnen
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-              Erstelle konsistente, markenkonforme Inhalte basierend auf deinem Schreibstil für jede Plattform
-            </p>
-          </div>
+              {/* Recommended Badge */}
+              {type.recommended && (
+                <div className="absolute top-2 right-2 bg-gradient-to-r from-pink-500 to-red-500 text-white px-2 py-0.5 rounded text-xs font-bold shadow-md">
+                  Top
+                </div>
+              )}
 
-          {/* Arrow indicator */}
-          <div className="flex-shrink-0 text-gray-400 group-hover:text-blue-500 group-hover:translate-x-1 transition-all">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-        </div>
+              {/* Coming Soon Badge */}
+              {type.comingSoon && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                  <div className="bg-orange-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg">
+                    Coming Soon
+                  </div>
+                </div>
+              )}
+            </div>
 
-        {/* Best badge */}
-        <div className="absolute top-4 right-4">
-          <span className="px-3 py-1 bg-gradient-to-r from-pink-500 to-red-500 text-white text-xs font-bold rounded-full shadow-lg">
-            Empfohlen
-          </span>
-        </div>
-      </button>
-
-      {/* Concept Campaign Button */}
-      <button
-        onClick={() => onSelectType("concept")}
-        className="group relative overflow-hidden bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl p-6 hover:border-purple-400 dark:hover:border-purple-500 transition-all hover:shadow-lg"
-      >
-        <div className="flex items-start gap-4">
-          {/* Icon/Emoji */}
-          <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/40 dark:to-pink-900/40 rounded-2xl flex items-center justify-center text-4xl">
-            ⭐
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 text-left">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-              Konzept Kampagne
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-              Starte mit einer Idee, und ich generiere passende Visuals dazu
-            </p>
-          </div>
-
-          {/* Arrow indicator */}
-          <div className="flex-shrink-0 text-gray-400 group-hover:text-purple-500 group-hover:translate-x-1 transition-all">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-        </div>
-      </button>
+            {/* Title */}
+            <div className="p-2.5">
+              <p className={`text-xs font-medium text-gray-900 dark:text-white ${type.textHover} transition-colors text-center`}>
+                {type.title}
+              </p>
+            </div>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

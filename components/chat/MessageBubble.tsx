@@ -24,7 +24,7 @@ interface MessageBubbleProps {
   imageUrls?: string[];
   onImageSelection?: (selectedUrls: string[]) => void;
   onProductSelection?: (productId: string) => void;
-  onCampaignTypeSelection?: (type: "product" | "concept") => void;
+  onCampaignTypeSelection?: (type: "product" | "concept" | "political") => void;
   onCampaignImageSelection?: (imageUrl: string) => void;
   onCampaignGeneratedImageView?: (imageUrl: string) => void;
   onCampaignImageEdit?: (imageUrl: string, editPrompt: string) => void;
@@ -36,8 +36,8 @@ interface MessageBubbleProps {
   onBilderWorkflowSelection?: (workflow: "product" | "combine" | "freebird") => void;
   onBilderProductImagesConfirm?: (selectedImages: string[]) => void;
   // Video workflow handlers
-  onVideoWorkflowSelection?: (workflow: "social-booster" | "inspirational" | "ai-explains") => void;
-  onSocialBoostSubWorkflowSelection?: (subWorkflow: "product-rotation" | "user-speaks" | "image-to-video") => void;
+  onVideoWorkflowSelection?: (workflow: "product-rotation" | "user-speaks" | "image-to-video" | "inspirational" | "ai-explains") => void;
+  onSocialBoostSubWorkflowSelection?: (subWorkflow: "product-rotation" | "user-speaks" | "image-to-video" | "political-campaign") => void;
   onProductRotationImageSelection?: (imageUrl: string) => void;
   onAiExplainsImageSelection?: (imageUrl: string) => void;
   onUserSpeaksImageSelection?: (imageUrl: string) => void;
@@ -573,6 +573,25 @@ export default function MessageBubble({
   } = parseVideoWorkflowMarkers(msgAfterBilder);
   const allImageUrls = [...(imageUrls || []), ...parsedImageUrls];
 
+  // Check if message contains card grids that need more width
+  const hasCardGrids = !isUser && (
+    (products && products.length > 0) ||
+    showCampaignTypeSelector ||
+    showCampaignProductSelector ||
+    campaignImageSelectorData ||
+    (campaignGeneratedImages && campaignGeneratedImages.length > 0) ||
+    showBilderWorkflowSelector ||
+    showBilderProductSelector ||
+    bilderProductImagesData ||
+    showVideoWorkflowSelector ||
+    showSocialBoostSubWorkflowSelector ||
+    showVideoProductSelector ||
+    productRotationImageSelectorData ||
+    aiExplainsImageSelectorData ||
+    userSpeaksImageSelectorData ||
+    imageToVideoImageSelectorData
+  );
+
   // Handle product selection
   const handleProductSelect = (product: BusinessProduct) => {
     if (onProductSelection) {
@@ -642,7 +661,7 @@ export default function MessageBubble({
       initial="hidden"
       animate="visible"
     >
-      <div className={`flex gap-3 max-w-[75%] ${isUser ? "flex-row-reverse" : "flex-row"}`}>
+      <div className={`flex gap-3 ${hasCardGrids ? 'max-w-3xl' : 'max-w-[80%]'} ${isUser ? "flex-row-reverse" : "flex-row"}`}>
         {!isUser && (
           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -651,7 +670,7 @@ export default function MessageBubble({
           </div>
         )}
         <div
-          className={`rounded-2xl px-4 py-3 ${
+          className={`rounded-2xl px-4 py-3 ${hasCardGrids ? 'w-full' : ''} ${
             isUser
               ? "bg-blue-600 text-white"
               : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -768,11 +787,11 @@ export default function MessageBubble({
 
           {/* Display Product Rotation image selector (single image selection) */}
           {productRotationImageSelectorData && !isUser && onProductRotationImageSelection && (
-            <div className="mt-3">
+            <div className="mt-3 w-full sm:w-[480px] lg:w-[672px]">
               <div className="mb-2 text-sm text-gray-700 dark:text-gray-300 font-medium">
                 Wähle ein Bild für dein Video:
               </div>
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {productRotationImageSelectorData.images.map((imageUrl, idx) => (
                   <motion.div
                     key={idx}
@@ -800,11 +819,11 @@ export default function MessageBubble({
 
           {/* Display AI Explains image selector (single image selection) */}
           {aiExplainsImageSelectorData && !isUser && onAiExplainsImageSelection && (
-            <div className="mt-3">
+            <div className="mt-3 w-full sm:w-[480px] lg:w-[672px]">
               <div className="mb-2 text-sm text-gray-700 dark:text-gray-300 font-medium">
                 Wähle ein Bild für dein Video:
               </div>
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {aiExplainsImageSelectorData.images.map((imageUrl, idx) => (
                   <motion.div
                     key={idx}
@@ -832,11 +851,11 @@ export default function MessageBubble({
 
           {/* Display User Speaks image selector (single image selection) */}
           {userSpeaksImageSelectorData && !isUser && onUserSpeaksImageSelection && (
-            <div className="mt-3">
+            <div className="mt-3 w-full sm:w-[480px] lg:w-[672px]">
               <div className="mb-2 text-sm text-gray-700 dark:text-gray-300 font-medium">
                 Wähle ein Bild für dein Video:
               </div>
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {userSpeaksImageSelectorData.images.map((imageUrl, idx) => (
                   <motion.div
                     key={idx}
@@ -864,11 +883,11 @@ export default function MessageBubble({
 
           {/* Image to Video - Image Selector */}
           {imageToVideoImageSelectorData && !isUser && onImageToVideoImageSelection && (
-            <div className="mt-3">
+            <div className="mt-3 w-full sm:w-[480px] lg:w-[672px]">
               <div className="mb-2 text-sm text-gray-700 dark:text-gray-300 font-medium">
                 Wähle ein Bild für dein Video:
               </div>
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {imageToVideoImageSelectorData.images.map((imageUrl, idx) => (
                   <motion.div
                     key={idx}

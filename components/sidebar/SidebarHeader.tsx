@@ -10,7 +10,11 @@ interface UserProfile {
   avatarUrl: string | null;
 }
 
-export default function SidebarHeader() {
+interface SidebarHeaderProps {
+  onProfileClick?: () => void;
+}
+
+export default function SidebarHeader({ onProfileClick }: SidebarHeaderProps) {
   const [user, setUser] = useState<UserProfile | null>(null);
 
   useEffect(() => {
@@ -54,7 +58,10 @@ export default function SidebarHeader() {
           XV STUDIO
         </h1>
       </div>
-      <div className="flex items-center gap-3 mb-4">
+      <div
+        className="flex items-center gap-3 mb-4 p-2 -mx-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+        onClick={onProfileClick}
+      >
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium overflow-hidden">
           {user?.avatarUrl ? (
             <Image

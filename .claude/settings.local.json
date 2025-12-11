@@ -1,26 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run dev:*)",
-      "Bash(npx tsc:*)",
-      "Bash(lsof:*)",
-      "Bash(xargs kill:*)",
-      "Bash(npm install:*)",
-      "Bash(kill:*)",
-      "Bash(test:*)",
-      "Bash(git init:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git remote add:*)",
-      "Bash(git branch:*)",
-      "Bash(git push:*)",
-      "Bash(curl:*)",
+      "Bash(grep:*)",
       "Bash(npm run build:*)",
-      "Bash(git diff:*)",
-      "Bash(git rev-parse:*)",
-      "Bash(git fetch:*)",
-      "Bash(npm audit:*)",
-      "Bash(grep -r \"N8N_WEBHOOK_URL_MARKETINGBILDER\\|N8N_WEBHOOK_URL_SOCIAL_MEDIA_CAMPAIGN\" --include=*.ts --include=*.tsx --include=*.js --include=*.jsx --include=*.md --exclude-dir=node_modules --exclude-dir=.next)"
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

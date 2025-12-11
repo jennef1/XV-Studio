@@ -1,101 +1,103 @@
 "use client";
 
 interface VideoWorkflowSelectorProps {
-  onSelectWorkflow: (workflow: "social-booster" | "inspirational" | "ai-explains") => void;
+  onSelectWorkflow: (workflow: "product-rotation" | "user-speaks" | "image-to-video" | "inspirational" | "ai-explains") => void;
 }
 
 export default function VideoWorkflowSelector({ onSelectWorkflow }: VideoWorkflowSelectorProps) {
+  const workflows = [
+    {
+      id: "product-rotation" as const,
+      title: "Lass dein Produkt im Glanz rotieren",
+      price: "CHF 35.-",
+      duration: "8 sec",
+      icon: "🔄",
+      gradient: "from-orange-400 to-red-400",
+      borderHover: "hover:border-orange-400 dark:hover:border-orange-500",
+      textHover: "group-hover:text-orange-600 dark:group-hover:text-orange-400",
+    },
+    {
+      id: "user-speaks" as const,
+      title: "Kunden Testimonial Highlight",
+      price: "CHF 45.-",
+      duration: "8 sec",
+      icon: "🗣️",
+      gradient: "from-blue-400 to-cyan-400",
+      borderHover: "hover:border-blue-400 dark:hover:border-blue-500",
+      textHover: "group-hover:text-blue-600 dark:group-hover:text-blue-400",
+    },
+    {
+      id: "image-to-video" as const,
+      title: "Image to Video",
+      price: "CHF 30.-",
+      duration: "8 sec",
+      icon: "🎬",
+      gradient: "from-green-400 to-emerald-400",
+      borderHover: "hover:border-green-400 dark:hover:border-green-500",
+      textHover: "group-hover:text-green-600 dark:group-hover:text-green-400",
+    },
+    {
+      id: "inspirational" as const,
+      title: "Inspirationsvideo für dein Produkt",
+      price: "CHF 40.-",
+      duration: "16 sec",
+      icon: "✨",
+      gradient: "from-purple-400 to-pink-400",
+      borderHover: "hover:border-purple-400 dark:hover:border-purple-500",
+      textHover: "group-hover:text-purple-600 dark:group-hover:text-purple-400",
+    },
+    {
+      id: "ai-explains" as const,
+      title: "Stelle dein Produkt in's echte Leben",
+      price: "CHF 50.-",
+      duration: "24 sec",
+      icon: "🤖",
+      gradient: "from-indigo-400 to-blue-400",
+      borderHover: "hover:border-indigo-400 dark:hover:border-indigo-500",
+      textHover: "group-hover:text-indigo-600 dark:group-hover:text-indigo-400",
+    },
+  ];
+
   return (
-    <div className="flex flex-col gap-4 my-4">
-      {/* Social Media Booster - 8 Sek */}
-      <button
-        onClick={() => onSelectWorkflow("social-booster")}
-        className="group relative overflow-hidden bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl p-6 hover:border-orange-400 dark:hover:border-orange-500 transition-all hover:shadow-lg"
-      >
-        <div className="flex items-start gap-4">
-          {/* Icon/Emoji */}
-          <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-orange-100 to-red-100 dark:from-orange-900/40 dark:to-red-900/40 rounded-2xl flex items-center justify-center text-4xl">
-            🚀
+    <div className="w-full sm:w-[480px] lg:w-[672px]">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 my-4">
+        {workflows.map((workflow) => (
+        <button
+          key={workflow.id}
+          onClick={() => onSelectWorkflow(workflow.id)}
+          className={`group relative border-2 rounded-2xl overflow-hidden transition-all hover:shadow-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${workflow.borderHover}`}
+        >
+          {/* Video Preview Placeholder */}
+          <div className="aspect-square bg-gray-100 dark:bg-gray-900 relative overflow-hidden">
+            {/* Gradient Background with Icon */}
+            <div className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${workflow.gradient}`}>
+              <span className="text-6xl opacity-90">{workflow.icon}</span>
+            </div>
+
+            {/* Price Tag */}
+            <div className="absolute top-2 right-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm px-2.5 py-1 rounded-lg shadow-md">
+              <p className="text-xs font-bold text-gray-900 dark:text-white">
+                {workflow.price}
+              </p>
+            </div>
+
+            {/* Duration Badge */}
+            <div className="absolute bottom-2 left-2 bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded">
+              <p className="text-xs font-medium text-white">
+                {workflow.duration}
+              </p>
+            </div>
           </div>
 
-          {/* Content */}
-          <div className="flex-1 text-left">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
-              Social Media Boost (8 Sek Video)
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-              Ein kurzes, prägnantes KI-Video, das sofort Aufmerksamkeit zieht – perfekt für Reels, Stories oder Ads. Schnell, klar und genau das, was KMU&apos;s heute brauchen.
+          {/* Title */}
+          <div className="p-2.5">
+            <p className={`text-xs font-medium text-gray-900 dark:text-white ${workflow.textHover} transition-colors text-center`}>
+              {workflow.title}
             </p>
           </div>
-
-          {/* Arrow indicator */}
-          <div className="flex-shrink-0 text-gray-400 group-hover:text-orange-500 group-hover:translate-x-1 transition-all">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-        </div>
-      </button>
-
-      {/* Inspirierendes Produkt Video - 16 Sek */}
-      <button
-        onClick={() => onSelectWorkflow("inspirational")}
-        className="group relative overflow-hidden bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl p-6 hover:border-purple-400 dark:hover:border-purple-500 transition-all hover:shadow-lg"
-      >
-        <div className="flex items-start gap-4">
-          {/* Icon/Emoji */}
-          <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/40 dark:to-pink-900/40 rounded-2xl flex items-center justify-center text-4xl">
-            ✨
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 text-left">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-              Inspirations Video für dein Produkt (16 Sek)
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-              Ein stimmungsvolles KI-Kurzvideo, das Interesse weckt und Nutzer animiert mehr zu erfahren – ohne viel Erklärung, aber mit Emotion und passender Musik.
-            </p>
-          </div>
-
-          {/* Arrow indicator */}
-          <div className="flex-shrink-0 text-gray-400 group-hover:text-purple-500 group-hover:translate-x-1 transition-all">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-        </div>
-      </button>
-
-      {/* KI erklärt - 24 Sek */}
-      <button
-        onClick={() => onSelectWorkflow("ai-explains")}
-        className="group relative overflow-hidden bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-3xl p-6 hover:border-blue-400 dark:hover:border-blue-500 transition-all hover:shadow-lg"
-      >
-        <div className="flex items-start gap-4">
-          {/* Icon/Emoji */}
-          <div className="flex-shrink-0 w-16 h-16 bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/40 dark:to-cyan-900/40 rounded-2xl flex items-center justify-center text-4xl">
-            🤖
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 text-left">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-              Stelle dein Produkt ins echte Leben (24 Sek)
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-              Ein unkompliziertes KI-Video, in dem eine KI-generierte Person dein Angebot direkt erklärt – ideal, um Produkte oder Dienstleistungen verständlich vorzustellen.
-            </p>
-          </div>
-
-          {/* Arrow indicator */}
-          <div className="flex-shrink-0 text-gray-400 group-hover:text-blue-500 group-hover:translate-x-1 transition-all">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-        </div>
-      </button>
+        </button>
+        ))}
+      </div>
     </div>
   );
 }

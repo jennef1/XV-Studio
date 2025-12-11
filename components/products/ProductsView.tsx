@@ -407,19 +407,21 @@ export default function ProductsView() {
   return (
     <div className="flex-1 flex h-full bg-white dark:bg-gray-950">
       {/* Left Sidebar - Product List */}
-      <div className="w-80 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 overflow-y-auto p-6 flex-shrink-0">
+      <div className="w-80 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 overflow-y-auto pt-16 px-6 pb-6 flex-shrink-0">
         {/* Add Product Button */}
-        <button
-          onClick={handleNewProduct}
-          className="w-full mb-6 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-500 transition-colors flex items-center gap-3 group"
-        >
-          <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-400 rounded-lg flex items-center justify-center flex-shrink-0">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </div>
-          <span className="text-gray-700 dark:text-gray-300 font-medium">Produkt manuell hinzufügen</span>
-        </button>
+        <div className="relative w-full mb-6 p-[2px] rounded-xl bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400">
+          <button
+            onClick={handleNewProduct}
+            className="w-full p-4 bg-white dark:bg-gray-800 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors flex items-center gap-3 group"
+          >
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-400 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+            <span className="text-gray-700 dark:text-gray-300 font-medium">Produkt manuell hinzufügen</span>
+          </button>
+        </div>
 
         {/* Product List */}
         <div className="space-y-3">
@@ -455,7 +457,7 @@ export default function ProductsView() {
       </div>
 
       {/* Right Panel - Product Form */}
-      <div className="flex-1 overflow-y-auto p-8 h-full">
+      <div className="flex-1 overflow-y-auto pt-16 px-8 pb-8 h-full">
         <div className="max-w-3xl mx-auto pb-20">
           {/* Read-only Product Display */}
           {selectedProduct && !isEditing && (

@@ -47,7 +47,8 @@ export default function ProductImagesMultiSelector({
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+      <div className="w-full sm:w-[480px] lg:w-[672px] mx-auto">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-4">
         {images.map((imageUrl, index) => {
           const isSelected = selectedImages.includes(imageUrl);
 
@@ -87,6 +88,7 @@ export default function ProductImagesMultiSelector({
             </button>
           );
         })}
+        </div>
       </div>
 
       {/* Selection info and confirm button */}

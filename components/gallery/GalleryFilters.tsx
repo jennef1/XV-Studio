@@ -14,7 +14,6 @@ export default function GalleryFilters({ activeFilter, onFilterChange }: Gallery
     { value: 0, label: PRODUCT_TYPE_NAMES[0] },
     { value: 1, label: PRODUCT_TYPE_NAMES[1] },
     { value: 2, label: PRODUCT_TYPE_NAMES[2] },
-    { value: 3, label: PRODUCT_TYPE_NAMES[3] },
   ];
 
   return (

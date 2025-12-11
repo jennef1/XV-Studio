@@ -70,8 +70,9 @@ export default function ProductSelector({ onSelectProduct }: ProductSelectorProp
   }
 
   return (
-    <div className="grid grid-cols-3 gap-2.5 my-4">
-      {products.map((product) => {
+    <div className="w-full sm:w-[480px] lg:w-[672px]">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 my-4">
+        {products.map((product) => {
         const imageUrl = Array.isArray(product.product_images) && product.product_images.length > 0
           ? (product.product_images[0] as string)
           : null;
@@ -109,7 +110,8 @@ export default function ProductSelector({ onSelectProduct }: ProductSelectorProp
             </div>
           </button>
         );
-      })}
+        })}
+      </div>
     </div>
   );
 }

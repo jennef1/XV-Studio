@@ -16,10 +16,11 @@ interface SidebarProps {
   selectedProductId: number | null;
   onProductSelect: (id: number | null) => void;
   onGallerySelect: (id: number) => void;
+  onProfileSelect: () => void;
   hasBusiness: boolean;
 }
 
-export default function Sidebar({ selectedProductId, onProductSelect, onGallerySelect, hasBusiness }: SidebarProps) {
+export default function Sidebar({ selectedProductId, onProductSelect, onGallerySelect, onProfileSelect, hasBusiness }: SidebarProps) {
   const [selection, setSelection] = useState<Selection>(null);
 
   const handleProjectSelect = (id: number) => {
@@ -35,7 +36,7 @@ export default function Sidebar({ selectedProductId, onProductSelect, onGalleryS
 
   return (
     <div className="w-64 h-full bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col overflow-y-auto">
-      <SidebarHeader />
+      <SidebarHeader onProfileClick={onProfileSelect} />
       <NewProjects
         selectedId={selection?.category === "project" ? selection.id : null}
         onSelect={handleProjectSelect}

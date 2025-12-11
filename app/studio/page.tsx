@@ -7,6 +7,7 @@ import PreviewPanel from "@/components/preview/PreviewPanel";
 import GalleryView from "@/components/gallery/GalleryView";
 import BusinessProfileView from "@/components/business/BusinessProfileView";
 import ProductsView from "@/components/products/ProductsView";
+import ProfileView from "@/components/profile/ProfileView";
 import OnboardingModal from "@/components/OnboardingModal";
 import { supabaseBrowserClient } from "@/lib/supabaseClient";
 
@@ -17,6 +18,7 @@ export default function StudioPage() {
   const [showGallery, setShowGallery] = useState(false);
   const [showBusinessProfile, setShowBusinessProfile] = useState(false);
   const [showProducts, setShowProducts] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [checkingProfile, setCheckingProfile] = useState(true);
   const [hasBusiness, setHasBusiness] = useState<boolean | null>(null);
@@ -43,6 +45,7 @@ export default function StudioPage() {
             setShowBusinessProfile(true);
             setShowGallery(false);
             setShowProducts(false);
+            setShowProfile(false);
             setSelectedProductId(null);
           } else {
             setHasBusiness(true);
@@ -65,6 +68,7 @@ export default function StudioPage() {
       setShowProducts(true);
       setShowBusinessProfile(false);
       setShowGallery(false);
+      setShowProfile(false);
       setSelectedProductId(null);
     };
 
@@ -81,6 +85,7 @@ export default function StudioPage() {
     setShowBusinessProfile(true);
     setShowGallery(false);
     setShowProducts(false);
+    setShowProfile(false);
     setSelectedProductId(null);
   };
 
@@ -89,6 +94,7 @@ export default function StudioPage() {
     setShowGallery(false);
     setShowBusinessProfile(false);
     setShowProducts(false);
+    setShowProfile(false);
   };
 
   const handleGallerySelect = (id: number) => {
@@ -97,17 +103,28 @@ export default function StudioPage() {
       setShowBusinessProfile(true);
       setShowGallery(false);
       setShowProducts(false);
+      setShowProfile(false);
     } else if (id === 2) {
       // Angebot
       setShowProducts(true);
       setShowBusinessProfile(false);
       setShowGallery(false);
+      setShowProfile(false);
     } else if (id === 3) {
       // Meine gespeicherten Projekte
       setShowGallery(true);
       setShowBusinessProfile(false);
       setShowProducts(false);
+      setShowProfile(false);
     }
+    setSelectedProductId(null);
+  };
+
+  const handleProfileSelect = () => {
+    setShowProfile(true);
+    setShowGallery(false);
+    setShowBusinessProfile(false);
+    setShowProducts(false);
     setSelectedProductId(null);
   };
 
@@ -129,11 +146,14 @@ export default function StudioPage() {
         selectedProductId={selectedProductId}
         onProductSelect={handleProductSelect}
         onGallerySelect={handleGallerySelect}
+        onProfileSelect={handleProfileSelect}
         hasBusiness={hasBusiness || false}
       />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header spacer for consistent top alignment */}
-        <div className="h-16 bg-white dark:bg-gray-950"></div>
+      <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-950">
+        {/* Header spacer for consistent top alignment - only for chat view */}
+        {!showBusinessProfile && !showProducts && !showGallery && !showProfile && (
+          <div className="h-16"></div>
+        )}
         {/* Main content area */}
         <div className="flex-1 flex overflow-hidden">
           {showBusinessProfile ? (
@@ -144,6 +164,7 @@ export default function StudioPage() {
                   setShowProducts(true);
                   setShowBusinessProfile(false);
                   setShowGallery(false);
+                  setShowProfile(false);
                 }}
                 onBusinessCreated={() => {
                   setHasBusiness(true);
@@ -159,6 +180,11 @@ export default function StudioPage() {
             // Show gallery view when saved projects is selected
             <div className="flex-1">
               <GalleryView />
+            </div>
+          ) : showProfile ? (
+            // Show profile view when profile is clicked
+            <div className="flex-1">
+              <ProfileView />
             </div>
           ) : (
             // Show normal chat + preview when product is selected

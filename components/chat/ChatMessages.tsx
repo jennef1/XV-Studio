@@ -18,7 +18,7 @@ interface ChatMessagesProps {
   messages: Message[];
   onImageSelection?: (selectedUrls: string[]) => void;
   onProductSelection?: (productId: string) => void;
-  onCampaignTypeSelection?: (type: "product" | "concept") => void;
+  onCampaignTypeSelection?: (type: "product" | "concept" | "political") => void;
   onCampaignImageSelection?: (imageUrl: string) => void;
   onCampaignGeneratedImageView?: (imageUrl: string) => void;
   onCampaignImageEdit?: (imageUrl: string, editPrompt: string) => void;
@@ -30,8 +30,8 @@ interface ChatMessagesProps {
   onBilderWorkflowSelection?: (workflow: "product" | "combine" | "freebird") => void;
   onBilderProductImagesConfirm?: (selectedImages: string[]) => void;
   // Video workflow handlers
-  onVideoWorkflowSelection?: (workflow: "social-booster" | "inspirational" | "ai-explains") => void;
-  onSocialBoostSubWorkflowSelection?: (subWorkflow: "product-rotation" | "user-speaks" | "image-to-video") => void;
+  onVideoWorkflowSelection?: (workflow: "product-rotation" | "user-speaks" | "image-to-video" | "inspirational" | "ai-explains") => void;
+  onSocialBoostSubWorkflowSelection?: (subWorkflow: "product-rotation" | "user-speaks" | "image-to-video" | "political-campaign") => void;
   onProductRotationImageSelection?: (imageUrl: string) => void;
   onAiExplainsImageSelection?: (imageUrl: string) => void;
   onUserSpeaksImageSelection?: (imageUrl: string) => void;

@@ -27,12 +27,12 @@ export default function ProductImageSelector({
   }
 
   return (
-    <div className="my-4">
+    <div className="my-4 w-full sm:w-[480px] lg:w-[672px]">
       <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
         Wähle ein Bild für <span className="font-medium text-gray-900 dark:text-white">{productName}</span>:
       </p>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
         {images.map((imageUrl, index) => (
           <button
             key={index}

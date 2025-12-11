@@ -27,11 +27,11 @@ export default function GalleryCard({ project, onClick, onToggleFavorite }: Gall
       onClick={onClick}
     >
       {/* Media (Image or Video thumbnail) */}
-      <div className="relative aspect-square w-full bg-gray-100 dark:bg-gray-800">
+      <div className="relative aspect-video w-full bg-gray-100 dark:bg-gray-800">
         {isVideo ? (
           <video
             src={mediaUrl}
-            className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
+            className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-300"
             muted
             playsInline
           />
@@ -40,7 +40,7 @@ export default function GalleryCard({ project, onClick, onToggleFavorite }: Gall
             src={mediaUrl}
             alt={project.project_name || "Project image"}
             fill
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            className="object-contain group-hover:scale-105 transition-transform duration-300"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
         )}

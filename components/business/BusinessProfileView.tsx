@@ -169,6 +169,78 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
     });
   };
 
+  // Tone of Voice helpers
+  const addToneOfVoice = () => {
+    if (!editedBusiness) return;
+    const currentTones = Array.isArray(editedBusiness.tone_of_voice)
+      ? editedBusiness.tone_of_voice
+      : [];
+    setEditedBusiness({
+      ...editedBusiness,
+      tone_of_voice: [...currentTones, ""],
+    });
+  };
+
+  const updateToneOfVoice = (index: number, value: string) => {
+    if (!editedBusiness) return;
+    const currentTones = Array.isArray(editedBusiness.tone_of_voice)
+      ? [...editedBusiness.tone_of_voice]
+      : [];
+    currentTones[index] = value;
+    setEditedBusiness({
+      ...editedBusiness,
+      tone_of_voice: currentTones,
+    });
+  };
+
+  const removeToneOfVoice = (index: number) => {
+    if (!editedBusiness) return;
+    const currentTones = Array.isArray(editedBusiness.tone_of_voice)
+      ? editedBusiness.tone_of_voice
+      : [];
+    const newTones = currentTones.filter((_, i) => i !== index);
+    setEditedBusiness({
+      ...editedBusiness,
+      tone_of_voice: newTones,
+    });
+  };
+
+  // Unique Selling Points helpers
+  const addUniqueSellingPoint = () => {
+    if (!editedBusiness) return;
+    const currentPoints = Array.isArray(editedBusiness.unique_selling_points)
+      ? editedBusiness.unique_selling_points
+      : [];
+    setEditedBusiness({
+      ...editedBusiness,
+      unique_selling_points: [...currentPoints, ""],
+    });
+  };
+
+  const updateUniqueSellingPoint = (index: number, value: string) => {
+    if (!editedBusiness) return;
+    const currentPoints = Array.isArray(editedBusiness.unique_selling_points)
+      ? [...editedBusiness.unique_selling_points]
+      : [];
+    currentPoints[index] = value;
+    setEditedBusiness({
+      ...editedBusiness,
+      unique_selling_points: currentPoints,
+    });
+  };
+
+  const removeUniqueSellingPoint = (index: number) => {
+    if (!editedBusiness) return;
+    const currentPoints = Array.isArray(editedBusiness.unique_selling_points)
+      ? editedBusiness.unique_selling_points
+      : [];
+    const newPoints = currentPoints.filter((_, i) => i !== index);
+    setEditedBusiness({
+      ...editedBusiness,
+      unique_selling_points: newPoints,
+    });
+  };
+
   const handleCreateProfile = async () => {
     if (!businessUrl.trim()) {
       setProcessingError("Bitte gib eine gültige URL ein");
@@ -501,12 +573,12 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-950 p-8 h-full">
+    <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-950 pt-16 px-8 pb-8 h-full">
       <div className="max-w-5xl mx-auto pb-20">
         {/* Business Header */}
         <div className="mb-8">
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-10">
               {business.logo_url ? (
                 <div className="w-24 h-24 rounded-3xl bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
                   <Image
@@ -530,7 +602,7 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
                   {business.company_name}
                 </h1>
                 {business.tagline && (
-                  <p className="text-lg text-gray-600 dark:text-gray-400 italic mb-2">
+                  <p className="text-lg text-gray-600 dark:text-gray-400 italic mb-1">
                     {business.tagline}
                   </p>
                 )}
@@ -750,22 +822,38 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
                 )}
               </div>
               {isEditing ? (
-                <textarea
-                  value={
-                    Array.isArray(editedBusiness?.tone_of_voice)
-                      ? editedBusiness.tone_of_voice.join(', ')
-                      : editedBusiness?.tone_of_voice || ""
-                  }
-                  onChange={(e) =>
-                    setEditedBusiness({
-                      ...editedBusiness!,
-                      tone_of_voice: e.target.value.split(',').map(s => s.trim()).filter(s => s),
-                    })
-                  }
-                  rows={3}
-                  className="w-full px-4 py-4 bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-2xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500 resize-none"
-                  placeholder="professionell, innovativ, leidenschaftlich (getrennt durch Kommas)"
-                />
+                <div className="space-y-2">
+                  {(() => {
+                    const tones = Array.isArray(editedBusiness?.tone_of_voice)
+                      ? editedBusiness.tone_of_voice
+                      : [];
+                    return tones.map((tone, index) => (
+                      <div key={index} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={tone}
+                          onChange={(e) => updateToneOfVoice(index, e.target.value)}
+                          placeholder={`Stil ${index + 1}`}
+                          className="flex-1 px-4 py-3 bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-2xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500"
+                        />
+                        <button
+                          onClick={() => removeToneOfVoice(index)}
+                          className="px-3 text-red-500 hover:text-red-700"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ));
+                  })()}
+                  <button
+                    onClick={addToneOfVoice}
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                  >
+                    + Stil hinzufügen
+                  </button>
+                </div>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {(() => {
@@ -845,24 +933,38 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
                 )}
               </div>
               {isEditing ? (
-                <textarea
-                  value={
-                    Array.isArray(editedBusiness?.unique_selling_points)
-                      ? editedBusiness.unique_selling_points.join(', ')
-                      : typeof editedBusiness?.unique_selling_points === 'string'
+                <div className="space-y-2">
+                  {(() => {
+                    const points = Array.isArray(editedBusiness?.unique_selling_points)
                       ? editedBusiness.unique_selling_points
-                      : ""
-                  }
-                  onChange={(e) =>
-                    setEditedBusiness({
-                      ...editedBusiness!,
-                      unique_selling_points: e.target.value.split(',').map(s => s.trim()).filter(s => s),
-                    })
-                  }
-                  rows={3}
-                  className="w-full px-4 py-4 bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-2xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500 resize-none"
-                  placeholder="Hochleistungs-Sportwagen, Starke Verbindung zur Geschichte (getrennt durch Kommas)"
-                />
+                      : [];
+                    return points.map((point, index) => (
+                      <div key={index} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={point}
+                          onChange={(e) => updateUniqueSellingPoint(index, e.target.value)}
+                          placeholder={`Merkmal ${index + 1}`}
+                          className="flex-1 px-4 py-3 bg-white dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-2xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500"
+                        />
+                        <button
+                          onClick={() => removeUniqueSellingPoint(index)}
+                          className="px-3 text-red-500 hover:text-red-700"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ));
+                  })()}
+                  <button
+                    onClick={addUniqueSellingPoint}
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                  >
+                    + Merkmal hinzufügen
+                  </button>
+                </div>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {Array.isArray(business.unique_selling_points) && business.unique_selling_points.length > 0 ? (

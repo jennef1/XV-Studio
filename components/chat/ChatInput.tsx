@@ -46,7 +46,7 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
   const canSend = (message.trim() || selectedImages.length > 0) && !disabled;
 
   return (
-    <div className="p-4 bg-white dark:bg-gray-900">
+    <div className="p-4 bg-white dark:bg-gray-950">
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col items-center gap-3">
           {/* Image Preview */}
@@ -86,10 +86,10 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
 
           {/* Input Area */}
           <motion.div
-            className={`flex items-center rounded-full border bg-white dark:bg-gray-900 shadow-md shadow-gray-200/60 dark:shadow-black/30 px-4 py-3 gap-3 max-w-3xl w-full transition-all duration-300 ${
+            className={`flex items-center rounded-full border bg-white dark:bg-gray-800 shadow-md shadow-gray-200/60 dark:shadow-black/30 px-4 py-3 gap-3 max-w-3xl w-full transition-all duration-300 ${
               isFocused
                 ? "border-blue-500 dark:border-blue-400 shadow-lg shadow-blue-200/40 dark:shadow-blue-900/40"
-                : "border-gray-200 dark:border-gray-800"
+                : "border-gray-200 dark:border-gray-700"
             }`}
             animate={{
               scale: isFocused ? 1.01 : 1,
@@ -114,8 +114,8 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
               whileTap={{ scale: 0.95 }}
               className={`flex-shrink-0 p-2 rounded-full transition-colors ${
                 disabled || selectedImages.length >= 3
-                  ? "text-gray-300 dark:text-gray-700 cursor-not-allowed"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
               }`}
               aria-label="Attach images"
             >
@@ -184,7 +184,7 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
                   className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
                     canSend
                       ? "bg-blue-600 hover:bg-blue-700 text-white"
-                      : "bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                      : "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
                   }`}
                   aria-label="Send message"
                 >

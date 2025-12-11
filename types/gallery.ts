@@ -101,7 +101,7 @@ export interface ProjectEditHistory {
 
 export const PRODUCT_TYPE_NAMES: Record<number, string> = {
   0: 'Bilder',
-  1: 'Social Media Paket',
+  1: 'Social Media Boost',
   2: 'Produkt / Service Video',
   3: 'Logo Transformation',
 };

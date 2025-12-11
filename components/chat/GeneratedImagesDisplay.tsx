@@ -20,8 +20,8 @@ export default function GeneratedImagesDisplay({
   };
 
   return (
-    <div className="my-4">
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+    <div className="my-4 w-full sm:w-[480px] lg:w-[672px]">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
         {images.map((imageUrl, index) => (
           <button
             key={index}

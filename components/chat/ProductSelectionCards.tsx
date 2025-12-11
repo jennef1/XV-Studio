@@ -47,8 +47,9 @@ export default function ProductSelectionCards({
   }
 
   return (
-    <div className="grid grid-cols-3 gap-2.5 my-4">
-      {products.map((product) => {
+    <div className="w-full sm:w-[480px] lg:w-[672px]">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 my-4">
+        {products.map((product) => {
         const firstImage = getFirstImage(product);
         const isSelected = selectedProductId === product.id;
 
@@ -104,7 +105,8 @@ export default function ProductSelectionCards({
             )}
           </button>
         );
-      })}
+        })}
+      </div>
     </div>
   );
 }
