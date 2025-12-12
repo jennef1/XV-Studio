@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { supabaseBrowserClient } from "@/lib/supabaseClient";
@@ -27,6 +27,8 @@ export default function ProductsView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [pollingJobId, setPollingJobId] = useState<string | null>(null);
+  const [isPollingProducts, setIsPollingProducts] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -53,7 +55,7 @@ export default function ProductsView() {
     }
   }, [selectedProduct]);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       setIsLoading(true);
       const { data: { user } } = await supabaseBrowserClient.auth.getUser();
@@ -63,11 +65,12 @@ export default function ProductsView() {
         return;
       }
 
-      // Check if business exists
+      // Check if business exists (filter out detached businesses)
       const { data: businessData, error: businessError } = await supabaseBrowserClient
         .from("businesses")
         .select("id")
         .eq("user_id", user.id)
+        .is("detached_at", null)
         .limit(1);
 
       if (businessError || !businessData || businessData.length === 0) {
@@ -75,10 +78,12 @@ export default function ProductsView() {
         return;
       }
 
+      // Fetch products for the active business only
       const { data, error } = await supabaseBrowserClient
         .from("business_products")
         .select("*")
         .eq("user_id", user.id)
+        .eq("business_id", businessData[0].id)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -92,7 +97,81 @@ export default function ProductsView() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  const pollForNewProducts = useCallback(async (jobId: string) => {
+    console.log("[ProductsView] Starting polling for jobId:", jobId);
+    console.log("[ProductsView] Setting isPollingProducts to TRUE");
+    setPollingJobId(jobId);
+    setIsPollingProducts(true);
+    console.log("[ProductsView] Polling state updated, starting poll loop...");
+
+    const poll = async () => {
+      try {
+        console.log("[ProductsView] Polling iteration - fetching job status for:", jobId);
+        // Fetch job status
+        const response = await fetch(`/api/campaign-status/${jobId}?t=${Date.now()}`, {
+          cache: 'no-store'
+        });
+
+        if (!response.ok) {
+          console.error("[ProductsView] Error fetching job status");
+          // Continue polling on error
+          setTimeout(poll, 3000);
+          return;
+        }
+
+        const data = await response.json();
+        console.log("[ProductsView] Job status:", data.job.status);
+
+        if (data.job.status === 'completed') {
+          console.log("[ProductsView] Job completed, stopping polling");
+          setIsPollingProducts(false);
+          setPollingJobId(null);
+          await fetchProducts(); // Final refresh
+          return;
+        } else if (data.job.status === 'failed') {
+          console.error("[ProductsView] Job failed");
+          setIsPollingProducts(false);
+          setPollingJobId(null);
+          return;
+        }
+
+        // Refresh products every 3 seconds while polling
+        console.log("[ProductsView] Job still processing, refreshing products...");
+        await fetchProducts();
+        console.log("[ProductsView] Products refreshed, scheduling next poll in 3 seconds");
+        setTimeout(poll, 3000);
+      } catch (error) {
+        console.error("[ProductsView] Polling error:", error);
+        setTimeout(poll, 3000);
+      }
+    };
+
+    poll();
+  }, [fetchProducts]);
+
+  // Listen for navigation from BusinessProfile with jobId
+  useEffect(() => {
+    const handleNavigateWithJob = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const jobId = customEvent.detail?.jobId;
+      console.log("[ProductsView] Event 'navigateToProductsWithJob' received with jobId:", jobId);
+      if (jobId) {
+        console.log("[ProductsView] Starting product polling for jobId:", jobId);
+        pollForNewProducts(jobId);
+      } else {
+        console.warn("[ProductsView] Event received but no jobId in detail");
+      }
+    };
+
+    console.log("[ProductsView] Event listener registered for 'navigateToProductsWithJob'");
+    window.addEventListener('navigateToProductsWithJob', handleNavigateWithJob);
+    return () => {
+      console.log("[ProductsView] Event listener removed");
+      window.removeEventListener('navigateToProductsWithJob', handleNavigateWithJob);
+    };
+  }, [pollForNewProducts]);
 
   const handleFetchProductData = async () => {
     if (!productUrl.trim()) {
@@ -115,24 +194,44 @@ export default function ProductsView() {
 
       if (!businessData) throw new Error("No business found");
 
-      const response = await fetch("/api/webhook/product-data", {
+      console.log("[ProductsView] Calling manual product webhook (import) with:", {
+        url: productUrl,
+        user_id: user.id,
+        business_id: businessData.id,
+      });
+
+      // Call API endpoint which will create the job and trigger n8n
+      const response = await fetch("/api/webhook/product-data-manual", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          url: productUrl,
           user_id: user.id,
           business_id: businessData.id,
-          product_url: productUrl
         }),
       });
 
+      console.log("[ProductsView] Webhook response status:", response.status);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to fetch product data");
+        const errorText = await response.text();
+        console.error("[ProductsView] Webhook error:", errorText);
+        throw new Error("Webhook-Fehler");
       }
 
-      await fetchProducts();
+      const responseData = await response.json();
+      const jobId = responseData.jobId;
+
+      if (!jobId) {
+        throw new Error("No job ID returned from webhook");
+      }
+
+      console.log("[ProductsView] Job created successfully:", jobId);
+
+      // Start polling for this job
+      pollForNewProducts(jobId);
 
       // Reset form
       setProductUrl("");
@@ -144,11 +243,10 @@ export default function ProductsView() {
       setUploadedImages([]);
       setSelectedProduct(null);
 
-      alert("Produkt erfolgreich hinzugefügt!");
+      alert("Produkt wird analysiert. Dies kann einen Moment dauern...");
     } catch (error: any) {
       console.error("Error fetching product data:", error);
       alert(error.message || "Fehler beim Abrufen der Produktdaten. Bitte versuche es erneut.");
-    } finally {
       setIsFetching(false);
     }
   };
@@ -218,7 +316,14 @@ export default function ProductsView() {
       return;
     }
 
+    if (!productUrl.trim()) {
+      alert("Bitte gib eine Produkt-URL ein");
+      return;
+    }
+
     try {
+      setIsFetching(true);
+
       const { data: { user } } = await supabaseBrowserClient.auth.getUser();
       if (!user) throw new Error("No user found");
 
@@ -231,25 +336,42 @@ export default function ProductsView() {
 
       if (!businessData) throw new Error("No business found");
 
-      const { data: newProduct, error } = await supabaseBrowserClient
-        .from("business_products")
-        .insert({
-          business_id: businessData.id,
+      console.log("[ProductsView] Calling manual product webhook with:", {
+        url: productUrl,
+        user_id: user.id,
+        business_id: businessData.id,
+      });
+
+      // Call API endpoint which will create the job and trigger n8n
+      const response = await fetch("/api/webhook/product-data-manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: productUrl,
           user_id: user.id,
-          product_name: productName,
-          product_description: productDescription,
-          key_features: keyFeatures,
-          benefits: benefits,
-          target_customer: targetCustomer || null,
-          source_url: productUrl || null,
-          product_images: uploadedImages,
-        })
-        .select()
-        .single();
+          business_id: businessData.id,
+        }),
+      });
 
-      if (error) throw error;
+      console.log("[ProductsView] Webhook response status:", response.status);
 
-      await fetchProducts();
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[ProductsView] Webhook error:", errorText);
+        throw new Error("Webhook-Fehler");
+      }
+
+      const responseData = await response.json();
+      const jobId = responseData.jobId;
+
+      if (!jobId) {
+        throw new Error("No job ID returned from webhook");
+      }
+
+      console.log("[ProductsView] Job created successfully:", jobId);
+
+      // Start polling for this job
+      pollForNewProducts(jobId);
 
       // Reset form
       setProductUrl("");
@@ -261,10 +383,11 @@ export default function ProductsView() {
       setUploadedImages([]);
       setSelectedProduct(null);
 
-      alert("Produkt erfolgreich hinzugefügt!");
+      alert("Produkt wird analysiert. Dies kann einen Moment dauern...");
     } catch (error: any) {
       console.error("Error adding product:", error);
       alert("Fehler beim Hinzufügen des Produkts. Bitte versuche es erneut.");
+      setIsFetching(false);
     }
   };
 
@@ -423,13 +546,23 @@ export default function ProductsView() {
           </button>
         </div>
 
+        {/* Polling Status Indicator */}
+        {isPollingProducts && (
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center gap-3">
+            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+            <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+              Neue Produkte werden geladen...
+            </span>
+          </div>
+        )}
+
         {/* Product List */}
         <div className="space-y-3">
-          {products.map((product) => (
+          {products.map((product, index) => (
             <button
               key={product.id}
               onClick={() => handleSelectProduct(product)}
-              className={`w-full p-3 rounded-xl transition-all flex items-center gap-3 ${
+              className={`w-full p-3 rounded-xl transition-all flex items-center gap-3 relative ${
                 selectedProduct?.id === product.id
                   ? "bg-white dark:bg-gray-800 shadow-md border-2 border-blue-500"
                   : "bg-white dark:bg-gray-800 hover:shadow-md border border-gray-200 dark:border-gray-700"
@@ -448,9 +581,19 @@ export default function ProductsView() {
               ) : (
                 <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 flex-shrink-0" />
               )}
-              <span className="text-left text-gray-900 dark:text-white font-medium text-sm truncate">
+              <span className="text-left text-gray-900 dark:text-white font-medium text-sm truncate flex-1">
                 {product.product_name || "Unbenanntes Produkt"}
               </span>
+
+              {/* Show spinner on the newest product while polling */}
+              {index === 0 && isPollingProducts && (
+                <>
+                  {console.log("[ProductsView] Rendering spinner for product at index 0, isPollingProducts:", isPollingProducts)}
+                  <div className="flex-shrink-0">
+                    <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                </>
+              )}
             </button>
           ))}
         </div>
@@ -609,6 +752,11 @@ export default function ProductsView() {
                       type="url"
                       value={productUrl}
                       onChange={(e) => setProductUrl(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && productUrl.trim() && !isFetching) {
+                          handleFetchProductData();
+                        }
+                      }}
                       placeholder="www.products.com"
                       className="flex-1 py-4 pr-5 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none"
                     />

@@ -49,8 +49,10 @@ export interface Database {
           tone_of_voice: string[];
           brand_values: string[];
           website_images: string[];
+          website_screenshot: string | null;
           target_audience: string | null;
           unique_selling_points: string[] | null;
+          detached_at: string | null;
         };
         Insert: {
           id?: string;
@@ -65,8 +67,10 @@ export interface Database {
           tone_of_voice?: string[];
           brand_values?: string[];
           website_images?: string[];
+          website_screenshot?: string | null;
           target_audience?: string | null;
           unique_selling_points?: string[] | null;
+          detached_at?: string | null;
         };
         Update: {
           user_id?: string;
@@ -79,8 +83,10 @@ export interface Database {
           tone_of_voice?: string[];
           brand_values?: string[];
           website_images?: string[];
+          website_screenshot?: string | null;
           target_audience?: string | null;
           unique_selling_points?: string[] | null;
+          detached_at?: string | null;
         };
         Relationships: [];
       };

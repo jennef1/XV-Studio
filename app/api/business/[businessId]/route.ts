@@ -38,19 +38,23 @@ export async function DELETE(
       );
     }
 
-    // Delete the business
-    const { error: deleteError } = await supabaseAdminClient
+    // Detach the business (soft delete) instead of hard deleting
+    const { error: detachError } = await supabaseAdminClient
       .from("businesses")
-      .delete()
+      .update({
+        detached_at: new Date().toISOString(),
+      })
       .eq("id", businessId);
 
-    if (deleteError) {
-      console.error("Error deleting business:", deleteError);
+    if (detachError) {
+      console.error("Error detaching business:", detachError);
       return NextResponse.json(
         { error: "Fehler beim Löschen des Firmenprofils" },
         { status: 500 }
       );
     }
+
+    console.log(`Business ${businessId} detached successfully`);
 
     return NextResponse.json({
       success: true,

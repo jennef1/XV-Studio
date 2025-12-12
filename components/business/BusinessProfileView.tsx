@@ -5,6 +5,7 @@ import Image from "next/image";
 import { supabaseBrowserClient } from "@/lib/supabaseClient";
 import { Database } from "@/types/database";
 import LoadingModal from "@/components/LoadingModal";
+import BusinessOnboardingLoader from "@/components/business/BusinessOnboardingLoader";
 
 type Business = Database["public"]["Tables"]["businesses"]["Row"];
 
@@ -25,6 +26,12 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
   const [isDeleting, setIsDeleting] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [showCompletionMessage, setShowCompletionMessage] = useState(false);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+
+  // New state for onboarding phases
+  const [onboardingPhase, setOnboardingPhase] = useState<'analyzing' | 'screenshot' | null>(null);
+  const [websiteScreenshot, setWebsiteScreenshot] = useState<string | null>(null);
+  const [screenshotTimer, setScreenshotTimer] = useState<NodeJS.Timeout | null>(null);
 
   // Helper function to ensure URL has proper protocol
   const ensureUrlProtocol = (url: string | null | undefined): string => {
@@ -40,6 +47,15 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
     fetchBusinessProfile();
   }, []);
 
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (screenshotTimer) {
+        clearTimeout(screenshotTimer);
+      }
+    };
+  }, [screenshotTimer]);
+
   const fetchBusinessProfile = async () => {
     try {
       setIsLoading(true);
@@ -54,6 +70,7 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
         .from("businesses")
         .select("*")
         .eq("user_id", user.id)
+        .is("detached_at", null)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -249,6 +266,7 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
 
     setIsProcessing(true);
     setProcessingError("");
+    setOnboardingPhase('analyzing'); // Set phase immediately to show loader
 
     try {
       const { data: { user } } = await supabaseBrowserClient.auth.getUser();
@@ -275,22 +293,44 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
         throw new Error("Fehler beim Starten der Analyse");
       }
 
-      const { jobId: newJobId } = await response.json();
-      setJobId(newJobId);
+      const data = await response.json();
+
+      // Check if we reconnected to existing business (instant reconnection)
+      if (data.skipped_scraping) {
+        console.log("Reconnected to existing business:", data.business_id);
+
+        // Show popup message
+        alert("Für diese Seite besteht bereits ein Firmenprofil. Wir verlinken dich direkt damit.");
+
+        // Fetch and show business immediately (no polling needed!)
+        await fetchBusinessProfile();
+        setIsProcessing(false);
+        setOnboardingPhase(null);
+        return;
+      }
+
+      // Otherwise, proceed with normal polling flow for new business
+      const jobId = data.jobId;
+      setJobId(jobId);
+      setCurrentJobId(jobId); // Store for later use when navigating to products
 
       // Start polling for job completion
-      pollJobStatus(newJobId, user.id);
+      pollJobStatus(jobId, user.id);
 
     } catch (error) {
       console.error("Error creating profile:", error);
       setProcessingError("Ein Fehler ist aufgetreten. Bitte versuche es erneut.");
       setIsProcessing(false);
+      setOnboardingPhase(null); // Clear phase on error
     }
   };
 
   const pollJobStatus = async (jobId: string, userId: string) => {
     const maxAttempts = 120; // 10 minutes / 5 seconds = 120 attempts
     let attempts = 0;
+
+    // Set initial phase
+    setOnboardingPhase('analyzing');
 
     const checkStatus = async () => {
       attempts++;
@@ -308,6 +348,7 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
             setTimeout(checkStatus, 5000);
           } else {
             setIsProcessing(false);
+            setOnboardingPhase(null);
             setProcessingError("Zeitüberschreitung beim Erstellen des Profils");
           }
           return;
@@ -316,30 +357,132 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
         const { job } = await statusResponse.json();
 
         if (job.status === "completed") {
-          // Job completed - fetch the business profile
-          const { data, error } = await supabaseBrowserClient
-            .from("businesses")
-            .select("*")
-            .eq("user_id", userId)
-            .single();
+          // *** PHASE TRANSITION: analyzing -> screenshot ***
 
-          if (data && !error) {
-            // Success!
-            setBusiness(data);
-            setEditedBusiness(data);
-            setIsProcessing(false);
-            setBusinessUrl("");
-            setShowCompletionMessage(true);
+          // Poll for screenshot to be saved to Supabase (n8n might update it asynchronously)
+          console.log("[Firmenprofil Complete] Job completed, polling for screenshot...");
 
-            // Notify parent that business has been created
-            if (onBusinessCreated) {
-              onBusinessCreated();
+          let businessData = null;
+          let businessError = null;
+          let screenshotFound = false;
+          let pollAttempts = 0;
+          const maxPollAttempts = 10; // Poll for up to 10 seconds
+
+          while (!screenshotFound && pollAttempts < maxPollAttempts) {
+            const result = await supabaseBrowserClient
+              .from("businesses")
+              .select("*")
+              .eq("user_id", userId)
+              .is("detached_at", null)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            businessData = result.data;
+            businessError = result.error;
+
+            if (businessData && businessData.website_screenshot) {
+              console.log(`[Screenshot Poll] Found screenshot after ${pollAttempts + 1} attempt(s):`, businessData.website_screenshot);
+              screenshotFound = true;
+            } else {
+              console.log(`[Screenshot Poll] Attempt ${pollAttempts + 1}/${maxPollAttempts} - no screenshot yet, waiting 1 second...`);
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              pollAttempts++;
             }
-            return;
           }
+
+          if (!screenshotFound && businessData) {
+            console.warn(`[Screenshot Poll] No screenshot found after ${maxPollAttempts} attempts, continuing without screenshot`);
+          }
+
+          if (businessData && !businessError) {
+            // DON'T set business yet - wait until after screenshot phase and completion modal
+            console.log("[Firmenprofil Complete] Business created with ID:", businessData.id);
+            console.log("[Firmenprofil Complete] Screenshot URL:", businessData.website_screenshot);
+            console.log("[Firmenprofil Complete] Screenshot type:", typeof businessData.website_screenshot);
+            console.log("[Firmenprofil Complete] Screenshot exists:", !!businessData.website_screenshot);
+            console.log("[Firmenprofil Complete] Angebote webhook already triggered server-side");
+
+            // Check if screenshot exists
+            if (businessData.website_screenshot) {
+              console.log("[Screenshot Phase] Starting 30-second display with URL:", businessData.website_screenshot);
+
+              // Verify screenshot URL is valid
+              if (businessData.website_screenshot.startsWith('http')) {
+                console.log("[Screenshot Phase] ✅ Valid URL - setting screenshot and phase");
+                const screenshotUrl = businessData.website_screenshot;
+                console.log("[Screenshot Phase] About to set state with URL:", screenshotUrl);
+                setWebsiteScreenshot(screenshotUrl);
+                setOnboardingPhase('screenshot');
+                console.log("[Screenshot Phase] State updated - websiteScreenshot and phase should now be set");
+              } else {
+                console.warn("[Screenshot Phase] Invalid screenshot URL format:", businessData.website_screenshot);
+                // Skip to completion if URL is invalid
+                setIsProcessing(false);
+                setOnboardingPhase(null);
+                setBusinessUrl("");
+                setShowCompletionMessage(true);
+
+                if (onBusinessCreated) {
+                  onBusinessCreated();
+                }
+                return;
+              }
+
+              // Start 30-second timer for screenshot display
+              const timer = setTimeout(() => {
+                // *** After screenshot, show completion modal directly ***
+                setIsProcessing(false);
+                setOnboardingPhase(null);
+                setBusinessUrl("");
+                setShowCompletionMessage(true);
+
+                // Trigger product polling automatically
+                if (jobId) {
+                  console.log("[BusinessProfile] Dispatching product polling event with jobId:", jobId);
+                  window.dispatchEvent(new CustomEvent('navigateToProductsWithJob', {
+                    detail: { jobId: jobId }
+                  }));
+                }
+
+                if (onBusinessCreated) {
+                  onBusinessCreated();
+                }
+              }, 30000); // 30 seconds
+
+              setScreenshotTimer(timer);
+            } else {
+              // No screenshot available - skip directly to completion
+              console.warn("No screenshot available in business record");
+              setIsProcessing(false);
+              setOnboardingPhase(null);
+              setBusinessUrl("");
+              setShowCompletionMessage(true);
+
+              // Trigger product polling automatically
+              if (jobId) {
+                console.log("[BusinessProfile] Dispatching product polling event with jobId (no screenshot):", jobId);
+                window.dispatchEvent(new CustomEvent('navigateToProductsWithJob', {
+                  detail: { jobId: jobId }
+                }));
+              }
+
+              if (onBusinessCreated) {
+                onBusinessCreated();
+              }
+            }
+          } else {
+            // Error fetching business - show error
+            console.error("Error fetching business:", businessError);
+            setIsProcessing(false);
+            setOnboardingPhase(null);
+            setProcessingError("Fehler beim Laden des Firmenprofils");
+          }
+          return;
         } else if (job.status === "failed") {
-          // Job failed
+          // Job failed - clear phase and show error
           setIsProcessing(false);
+          setOnboardingPhase(null);
           setProcessingError(job.errorMessage || "Ein Fehler ist aufgetreten");
           return;
         }
@@ -347,6 +490,7 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
         // Still processing - check if we've exceeded max attempts
         if (attempts >= maxAttempts) {
           setIsProcessing(false);
+          setOnboardingPhase(null);
           setProcessingError("Zeitüberschreitung. Die Analyse dauert länger als erwartet.");
           return;
         }
@@ -359,6 +503,7 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
 
         if (attempts >= maxAttempts) {
           setIsProcessing(false);
+          setOnboardingPhase(null);
           setProcessingError("Zeitüberschreitung beim Erstellen des Profils");
         } else {
           // Retry
@@ -407,12 +552,20 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
     }
   };
 
-  const handleCompletionClose = () => {
+  const handleCompletionClose = async () => {
     setShowCompletionMessage(false);
+    // Load the business profile after modal closes
+    await fetchBusinessProfile();
   };
 
   const handleNavigateToProducts = () => {
     if (onNavigateToProducts) {
+      // Dispatch custom event with jobId for ProductsView to start polling
+      if (currentJobId) {
+        window.dispatchEvent(new CustomEvent('navigateToProductsWithJob', {
+          detail: { jobId: currentJobId }
+        }));
+      }
       onNavigateToProducts();
     }
   };
@@ -431,135 +584,97 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
   if (!business) {
     return (
       <>
-        <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-8">
-          <div className="max-w-2xl w-full">
-            {!isProcessing ? (
-              <>
-                <div className="text-center mb-48">
-                  {/* Title */}
-                  <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-8 tracking-tight">
-                    Willkommen in deinem{" "}
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
-                      XV Studio
-                    </span>
-                  </h2>
-
-                  {/* Description */}
-                  <p className="text-base text-gray-500 dark:text-gray-500 leading-relaxed">
-                    Bevor wir gemeinsam kreativ werden, möchten wir gerne mehr über dein Geschäft erfahren. Gib einfach deine Webseite an und unsere KI erstellt ein Unternehmensprofil mit deinen Produkten oder Servicedienstleistungen. Diese dienen als Basis für deine neuen Bilder & Videos.
-                  </p>
-                </div>
-
-                {/* URL Input Box with Submit Button */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <input
-                      id="businessUrl"
-                      type="url"
-                      value={businessUrl}
-                      onChange={(e) => setBusinessUrl(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !isProcessing && businessUrl.trim()) {
-                          handleCreateProfile();
-                        }
-                      }}
-                      placeholder="https://www.deinefirma.ch"
-                      className="flex-1 px-6 py-4 border-2 border-gray-200 dark:border-gray-700 rounded-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors text-base"
-                      disabled={isProcessing}
-                    />
-                    <button
-                      onClick={handleCreateProfile}
-                      disabled={isProcessing || !businessUrl.trim()}
-                      className="w-14 h-14 flex items-center justify-center bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white rounded-full font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                      title="Absenden"
-                    >
-                      <svg
-                        className="w-6 h-6"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M14 5l7 7m0 0l-7 7m7-7H3"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-
-                  {/* Error Message */}
-                  {processingError && (
-                    <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl text-red-600 dark:text-red-400 text-sm">
-                      {processingError}
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              /* Inline Loading State */
-              <div className="text-center space-y-8">
-                {/* Circular loading animation */}
-                <div className="flex justify-center">
-                  <div className="relative w-20 h-20">
-                    {/* Outer spinning circle */}
-                    <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-700 rounded-full"></div>
-                    <div className="absolute inset-0 border-4 border-transparent border-t-purple-600 dark:border-t-purple-400 rounded-full animate-spin"></div>
-                    {/* Inner pulsing circle */}
-                    <div className="absolute inset-3 bg-purple-100 dark:bg-purple-800 rounded-full animate-pulse"></div>
-                    {/* Center dot */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-4 h-4 bg-purple-600 dark:bg-purple-400 rounded-full"></div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Title */}
-                <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  Erstelle dein Unternehmensprofil
-                </h2>
-
-                {/* Subtitle */}
-                <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed max-w-md mx-auto">
-                  Wir analysieren deine Webseite und erstellen dein Unternehmensprofil mit Angeboten.<br />
-                  Dies kann bis zu 10 Minuten dauern.
-                </p>
-
-                {/* Status indicator */}
-                <div className="flex items-center justify-center gap-2 bg-white dark:bg-gray-800 rounded-xl px-4 py-3 border border-gray-200 dark:border-gray-700 inline-flex mx-auto">
-                  <div className="flex gap-1">
-                    <span className="w-1.5 h-1.5 bg-purple-500 dark:bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
-                    <span className="w-1.5 h-1.5 bg-purple-500 dark:bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
-                    <span className="w-1.5 h-1.5 bg-purple-500 dark:bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></span>
-                  </div>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Webseite wird analysiert
-                  </span>
-                </div>
-
-                {/* URL Display */}
-                <div className="flex items-center justify-center gap-2 bg-white dark:bg-gray-800 rounded-xl px-4 py-3 border border-gray-200 dark:border-gray-700 inline-flex mx-auto">
-                  <svg
-                    className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                    />
-                  </svg>
-                  <span className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                    {businessUrl}
-                  </span>
-                </div>
-              </div>
-            )}
+        <div className="h-full flex flex-col items-center bg-gray-50 dark:bg-gray-900 px-8 py-16">
+          {/* Title - Always visible */}
+          <div className="w-full max-w-4xl flex-shrink-0 pt-8">
+            <h2 className="text-4xl font-extrabold text-gray-900 dark:text-white text-center tracking-tight">
+              Willkommen in deinem{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
+                XV Studio
+              </span>
+            </h2>
           </div>
+
+          {/* Spacer */}
+          <div className="h-16"></div>
+
+          {!isProcessing ? (
+            <>
+              {/* Description */}
+              <div className="w-full max-w-4xl flex-shrink-0">
+                <p className="text-lg text-gray-600 dark:text-gray-400 leading-relaxed max-w-3xl mx-auto text-center">
+                  Bevor wir gemeinsam kreativ werden, möchten wir gerne mehr über dein Geschäft erfahren. Gib einfach deine Webseite an und unsere KI erstellt ein Unternehmensprofil mit deinen Produkten oder Servicedienstleistungen. Diese dienen als Basis für deine neuen Bilder & Videos.
+                </p>
+              </div>
+
+              {/* Spacer */}
+              <div className="h-32"></div>
+
+              {/* URL Input Box */}
+              <div className="w-full max-w-2xl flex-shrink-0 space-y-4">
+                <div className="flex items-center gap-3">
+                  <input
+                    id="businessUrl"
+                    type="url"
+                    value={businessUrl}
+                    onChange={(e) => setBusinessUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !isProcessing && businessUrl.trim()) {
+                        handleCreateProfile();
+                      }
+                    }}
+                    placeholder="https://www.deinefirma.ch"
+                    className="flex-1 px-6 py-4 border-2 border-gray-200 dark:border-gray-700 rounded-full bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:bg-white dark:focus:bg-gray-700 transition-colors text-base"
+                    disabled={isProcessing}
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleCreateProfile}
+                    disabled={isProcessing || !businessUrl.trim()}
+                    className="w-14 h-14 flex items-center justify-center bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white rounded-full font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                    title="Absenden"
+                  >
+                    <svg
+                      className="w-6 h-6"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M14 5l7 7m0 0l-7 7m7-7H3"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Error Message */}
+                {processingError && (
+                  <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl text-red-600 dark:text-red-400 text-sm">
+                    {processingError}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : onboardingPhase ? (
+            /* New Business Onboarding Loader with Three Phases */
+            <>
+              {console.log("[Render] Rendering BusinessOnboardingLoader with:", {
+                phase: onboardingPhase,
+                screenshotUrl: websiteScreenshot,
+                hasScreenshot: !!websiteScreenshot
+              })}
+              <div className="w-full max-w-4xl flex-1 flex items-center justify-center">
+                <BusinessOnboardingLoader
+                  businessUrl={businessUrl}
+                  phase={onboardingPhase}
+                  screenshotUrl={websiteScreenshot}
+                />
+              </div>
+            </>
+          ) : null}
         </div>
 
         {showCompletionMessage && (
@@ -602,7 +717,7 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
                   {business.company_name}
                 </h1>
                 {business.tagline && (
-                  <p className="text-lg text-gray-600 dark:text-gray-400 italic mb-1">
+                  <p className="text-lg text-gray-600 dark:text-gray-400 mb-1">
                     {business.tagline}
                   </p>
                 )}
@@ -1083,13 +1198,13 @@ function CompletionModal({ onClose, onNavigateToProducts }: CompletionModalProps
           </div>
           <div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-              Profil erstellt!
+              Firmenprofil erstellt!
             </h3>
           </div>
         </div>
 
         <p className="text-gray-700 dark:text-gray-300 mb-8 leading-relaxed">
-          Das Unternehmens & Angebotsprofil ist bereit für dich zum Review.
+          Wir haben dein Firmenprofil erstellt. Sieht sehr gut aus! Nun werden deine Produkte / Service Angebote analysiert, was etwas dauert.
         </p>
 
         <div className="flex gap-3">

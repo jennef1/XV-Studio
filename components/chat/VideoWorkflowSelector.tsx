@@ -50,6 +50,7 @@ export default function VideoWorkflowSelector({ onSelectWorkflow }: VideoWorkflo
       gradient: "from-purple-400 to-pink-400",
       borderHover: "hover:border-purple-400 dark:hover:border-purple-500",
       textHover: "group-hover:text-purple-600 dark:group-hover:text-purple-400",
+      videoUrl: "https://khvcsdzqqmudeuprgzjf.supabase.co/storage/v1/object/public/XVS%20Material/Inspiration.mp4",
     },
     {
       id: "ai-explains" as const,
