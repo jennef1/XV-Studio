@@ -36,7 +36,10 @@ export default function StudioPage() {
             .from("businesses")
             .select("*")
             .eq("user_id", user.id)
+            .is("detached_at", null)  // Only find active (non-detached) businesses
             .maybeSingle();
+
+          console.log("[Studio] Business check result:", { business, error, hasBusiness: !!business });
 
           // If no business profile found, show onboarding and navigate to business profile view
           if (error || !business) {
