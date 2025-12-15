@@ -83,6 +83,9 @@ interface ConversationState {
     timestamp: string;
     isEdit?: boolean;
   }>;
+  // Restart workflow state
+  isAwaitingRestart?: boolean; // Track if waiting for restart confirmation
+  firstGenerationComplete?: boolean; // Track first generation (for Bilder)
 }
 
 interface ChatContainerProps {
@@ -150,6 +153,8 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
       message: undefined,
     },
     generatedMediaHistory: [],
+    isAwaitingRestart: false,
+    firstGenerationComplete: false,
   });
 
   // Transient UI state (not persisted)
@@ -417,8 +422,148 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
     }
   };
 
+  /**
+   * Restart the workflow - clear conversation and show greeting
+   */
+  const handleWorkflowRestart = async () => {
+    console.log("[RESTART] Restarting workflow for product:", selectedProductId);
+
+    if (selectedProductId === null) return;
+
+    const config = PRODUCT_CONFIGS[selectedProductId];
+    if (!config) return;
+
+    // Create new state with greeting message
+    const greetingMessage: Message = {
+      id: Date.now().toString(),
+      role: "assistant",
+      content: config.greeting,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+
+    // Reset to initial state with greeting message
+    const resetState: ConversationState = {
+      messages: [greetingMessage],
+      isComplete: false,
+      isRefining: false,
+      isAwaitingRestart: false,
+      firstGenerationComplete: false,
+      currentImageUrl: null,
+      originalImageSettings: {},
+      lastGenerationParams: undefined,
+      selectedVideoImages: [],
+      campaignState: {
+        type: null,
+        selectedProduct: null,
+        selectedImage: null,
+        generatedImages: [],
+        isGenerating: false,
+        isEditingImage: false,
+        editingImageIndex: null,
+      },
+      bilderWorkflowState: {
+        workflow: null,
+        selectedProduct: null,
+        selectedProductImages: [],
+      },
+      videoWorkflowState: {
+        workflow: null,
+        selectedProduct: null,
+        selectedImage: null,
+        scenarioDescription: null,
+        personDescription: null,
+        actionDescription: null,
+        waitingFor: null,
+      },
+      generationState: {
+        isGenerating: false,
+        type: null,
+        message: undefined,
+      },
+      generatedMediaHistory: [],
+    };
+
+    setCurrentState(resetState);
+
+    // Clear preview
+    onPreviewUpdate?.(null);
+
+    // Re-initialize with products if needed (same as initial load)
+    if (selectedProductId === 0 || selectedProductId === 2) {
+      await initializeWithProducts(selectedProductId, resetState);
+    }
+  };
+
+  /**
+   * Check if user message indicates intent to restart workflow
+   */
+  const detectRestartIntent = (message: string): boolean => {
+    const lowerMsg = message.toLowerCase().trim();
+
+    // Simple affirmative words
+    const affirmativeWords = [
+      'ja', 'klar', 'gerne', 'okay', 'ok', 'sicher', 'natürlich',
+      'yes', 'sure', 'yep', 'yeah', 'los', 'go'
+    ];
+
+    // Check for single word affirmations
+    if (affirmativeWords.includes(lowerMsg)) {
+      return true;
+    }
+
+    // Check for phrases (simple substring matching)
+    const affirmativePhrases = [
+      'nochmal',
+      'noch mal',
+      'noch ein',
+      'neues bild',
+      'neues video',
+      'neue kampagne',
+      'neue bilder',
+      'neue videos',
+      'new image',
+      'new video',
+      'start over',
+      'von vorne',
+    ];
+
+    return affirmativePhrases.some(phrase => lowerMsg.includes(phrase));
+  };
+
   const handleSendMessage = async (content: string, images?: File[]) => {
     if ((!content.trim() && (!images || images.length === 0)) || isLoading) return;
+
+    // Check for restart intent when awaiting restart
+    if (currentState.isAwaitingRestart && content.trim()) {
+      if (detectRestartIntent(content.trim())) {
+        // User wants to restart - show confirmation and restart
+        const userMessage: Message = {
+          id: Date.now().toString(),
+          role: "user",
+          content: content.trim(),
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        };
+
+        setCurrentState(prev => ({
+          ...prev,
+          messages: [...prev.messages, userMessage],
+        }));
+
+        // Brief delay for smooth UX
+        setTimeout(() => {
+          handleWorkflowRestart();
+        }, 500);
+
+        return;
+      } else {
+        // User doesn't want to restart - turn off restart flag and continue normally
+        setCurrentState(prev => ({
+          ...prev,
+          isAwaitingRestart: false,
+        }));
+        // Fall through to normal message handling
+      }
+    }
 
     // Handle AI Explains Video workflow input collection
     if (selectedProductId === 2 && currentState.videoWorkflowState?.workflow === "ai-explains") {
@@ -921,10 +1066,14 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
               {
                 id: Date.now().toString(),
                 role: "assistant",
-                content: "Dein Marketingbild ist fertig! Schau es dir im Vorschau-Bereich an. Möchtest du Änderungen vornehmen? Beschreibe einfach, was ich anpassen soll.",
+                content: !prev.firstGenerationComplete
+                  ? "Dein Marketingbild ist fertig! Schau es dir im Vorschau-Bereich an.\n\nMöchtest du Änderungen vornehmen? Beschreibe einfach, was ich anpassen soll.\n\nOder möchtest du ein neues Bild erstellen?"
+                  : "Dein Marketingbild ist fertig! Schau es dir im Vorschau-Bereich an. Möchtest du Änderungen vornehmen? Beschreibe einfach, was ich anpassen soll.",
                 timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
               },
             ],
+            firstGenerationComplete: true,
+            isAwaitingRestart: !prev.firstGenerationComplete,
           }));
         }
       } catch (error: any) {
@@ -1711,12 +1860,13 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
             ...prev,
             isComplete: true,
             currentImageUrl: videoUrl,
+            isAwaitingRestart: true,
             messages: [
               ...prev.messages.slice(0, -1), // Remove the "läuft..." message
               {
                 id: Date.now().toString(),
                 role: "assistant",
-                content: "Dein Video wurde erfolgreich erstellt! Du kannst es jetzt in der Vorschau sehen.",
+                content: "Dein Video wurde erfolgreich erstellt! Du kannst es jetzt in der Vorschau sehen.\n\nMöchtest du ein neues Video erstellen?",
                 timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
               },
             ],
@@ -1884,10 +2034,14 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
             {
               id: Date.now().toString(),
               role: "assistant",
-              content: "Dein Bild wurde erfolgreich erstellt! Du kannst es jetzt in der Vorschau sehen.\n\nMöchtest du etwas an diesem Bild ändern? Beschreibe einfach, was du anders haben möchtest, und ich erstelle eine überarbeitete Version für dich.",
+              content: !prev.firstGenerationComplete
+                ? "Dein Bild wurde erfolgreich erstellt! Du kannst es jetzt in der Vorschau sehen.\n\nMöchtest du etwas an diesem Bild ändern? Beschreibe einfach, was du anders haben möchtest.\n\nOder möchtest du ein neues Bild erstellen?"
+                : "Dein Bild wurde erfolgreich erstellt! Du kannst es jetzt in der Vorschau sehen.\n\nMöchtest du etwas an diesem Bild ändern? Beschreibe einfach, was du anders haben möchtest, und ich erstelle eine überarbeitete Version für dich.",
               timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             },
           ],
+          firstGenerationComplete: true,
+          isAwaitingRestart: !prev.firstGenerationComplete,
         }));
         setIsLoading(false); // Re-enable input for refinements
       } else {
@@ -2174,6 +2328,7 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
             ...prev,
             isComplete: true,
             currentImageUrl: videoUrl,
+            isAwaitingRestart: true,
             generationState: {
               isGenerating: false,
               type: null,
@@ -2197,7 +2352,7 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
               {
                 id: Date.now().toString(),
                 role: "assistant",
-                content: "Dein Video wurde erfolgreich erstellt! Du kannst es jetzt in der Vorschau sehen.",
+                content: "Dein Video wurde erfolgreich erstellt! Du kannst es jetzt in der Vorschau sehen.\n\nMöchtest du ein neues Video erstellen?",
                 timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
               },
             ],
@@ -2539,6 +2694,8 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
           // Update state with generated images
           setCurrentState(prev => ({
             ...prev,
+            isComplete: true,
+            isAwaitingRestart: true,
             campaignState: {
               ...prev.campaignState!,
               generatedImages: images,
@@ -2567,7 +2724,7 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
               {
                 id: Date.now().toString(),
                 role: "assistant",
-                content: `Deine Kampagnenbilder sind fertig! Ich habe ${images.length} Varianten für dich erstellt.\n\n[CAMPAIGN_GENERATED_IMAGES:${JSON.stringify(images)}]\n\nKlicke auf ein Bild um es in der Vorschau zu öffnen. Dort kannst du es speichern, herunterladen oder mit einem Text-Prompt bearbeiten.`,
+                content: `Deine Kampagnenbilder sind fertig! Ich habe ${images.length} Varianten für dich erstellt.\n\n[CAMPAIGN_GENERATED_IMAGES:${JSON.stringify(images)}]\n\nKlicke auf ein Bild um es in der Vorschau zu öffnen. Dort kannst du es speichern, herunterladen oder mit einem Text-Prompt bearbeiten.\n\nMöchtest du eine neue Kampagne erstellen?`,
                 timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
               },
             ],
@@ -3534,6 +3691,7 @@ Wähle jetzt EIN Bild aus, das im Video rotieren soll:
             ...prev,
             isComplete: true,
             currentImageUrl: videoUrl,
+            isAwaitingRestart: true,
             generationState: {
               isGenerating: false,
               type: null,
@@ -3557,7 +3715,7 @@ Wähle jetzt EIN Bild aus, das im Video rotieren soll:
               {
                 id: Date.now().toString(),
                 role: "assistant",
-                content: "Dein Video wurde erfolgreich erstellt! Du kannst es jetzt in der Vorschau sehen.",
+                content: "Dein Video wurde erfolgreich erstellt! Du kannst es jetzt in der Vorschau sehen.\n\nMöchtest du ein neues Video erstellen?",
                 timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
               },
             ],
@@ -4448,7 +4606,7 @@ Wähle jetzt EIN Bild aus, das im Video verwendet werden soll:
         generationType={currentState.generationState?.type || undefined}
         generationMessage={currentState.generationState?.message}
       />
-      <ChatInput onSendMessage={handleSendMessage} disabled={isLoading || (currentState.isComplete && !currentState.isRefining)} />
+      <ChatInput onSendMessage={handleSendMessage} disabled={isLoading || (currentState.isComplete && !currentState.isRefining && !currentState.isAwaitingRestart)} />
     </div>
   );
 }
