@@ -11,7 +11,7 @@ export default function VideoWorkflowSelector({ onSelectWorkflow }: VideoWorkflo
     {
       id: "product-rotation" as const,
       title: "Lass dein Produkt im Glanz rotieren",
-      price: "CHF 35.-",
+      price: "CHF 40.-",
       duration: "8 sec",
       icon: "🔄",
       gradient: "from-orange-400 to-red-400",
@@ -22,7 +22,7 @@ export default function VideoWorkflowSelector({ onSelectWorkflow }: VideoWorkflo
     {
       id: "user-speaks" as const,
       title: "Kunden Testimonial Highlight",
-      price: "CHF 45.-",
+      price: "CHF 40.-",
       duration: "8 sec",
       icon: "🗣️",
       gradient: "from-blue-400 to-cyan-400",
@@ -33,7 +33,7 @@ export default function VideoWorkflowSelector({ onSelectWorkflow }: VideoWorkflo
     {
       id: "image-to-video" as const,
       title: "Image to Video",
-      price: "CHF 30.-",
+      price: "CHF 35.-",
       duration: "8 sec",
       icon: "🎬",
       gradient: "from-green-400 to-emerald-400",
@@ -44,7 +44,7 @@ export default function VideoWorkflowSelector({ onSelectWorkflow }: VideoWorkflo
     {
       id: "inspirational" as const,
       title: "Inspirationsvideo für dein Produkt",
-      price: "CHF 40.-",
+      price: "CHF 80.-",
       duration: "16 sec",
       icon: "✨",
       gradient: "from-purple-400 to-pink-400",
@@ -55,7 +55,7 @@ export default function VideoWorkflowSelector({ onSelectWorkflow }: VideoWorkflo
     {
       id: "ai-explains" as const,
       title: "Stelle dein Produkt in's echte Leben",
-      price: "CHF 50.-",
+      price: "CHF 120.-",
       duration: "24 sec",
       icon: "🤖",
       gradient: "from-indigo-400 to-blue-400",
@@ -100,7 +100,7 @@ export default function VideoWorkflowSelector({ onSelectWorkflow }: VideoWorkflo
                 muted
                 loop
                 playsInline
-                preload="metadata"
+                preload="auto"
                 className="w-full h-full object-cover"
               />
             ) : (

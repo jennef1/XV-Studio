@@ -10,6 +10,7 @@ import ProductsView from "@/components/products/ProductsView";
 import ProfileView from "@/components/profile/ProfileView";
 import OnboardingModal from "@/components/OnboardingModal";
 import { supabaseBrowserClient } from "@/lib/supabaseClient";
+import { getUserPrimaryBusiness } from "@/lib/businessAccess";
 
 export default function StudioPage() {
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
@@ -32,17 +33,16 @@ export default function StudioPage() {
         const { data: { user } } = await supabaseBrowserClient.auth.getUser();
 
         if (user) {
-          const { data: business, error } = await supabaseBrowserClient
-            .from("businesses")
-            .select("*")
-            .eq("user_id", user.id)
-            .is("detached_at", null)  // Only find active (non-detached) businesses
-            .maybeSingle();
+          // Use new helper function that checks junction table
+          const business = await getUserPrimaryBusiness(user.id, false);
 
-          console.log("[Studio] Business check result:", { business, error, hasBusiness: !!business });
+          console.log("[Studio] Business check result:", {
+            business,
+            hasBusiness: !!business
+          });
 
           // If no business profile found, show onboarding and navigate to business profile view
-          if (error || !business) {
+          if (!business) {
             setShowOnboarding(true);
             setHasBusiness(false);
             setShowBusinessProfile(true);
@@ -203,6 +203,10 @@ export default function StudioPage() {
                 mediaUrl={previewMediaUrl}
                 productType={selectedProductId}
                 generationParams={generationParams}
+                onClose={() => {
+                  setPreviewMediaUrl(null);
+                  setGenerationParams(null);
+                }}
               />
             </>
           )}

@@ -9,6 +9,7 @@ import {
 import MediaPreview from "./MediaPreview";
 import { saveProject, generateProjectName } from "@/lib/gallery/galleryService";
 import type { GenerationParams } from "@/types/gallery";
+import { useToast } from "@/components/ToastProvider";
 
 const actionButtons = [
   {
@@ -45,9 +46,11 @@ interface PreviewPanelProps {
   mediaUrl?: string | null;
   productType?: number | null;
   generationParams?: GenerationParams | null;
+  onClose?: () => void;
 }
 
-export default function PreviewPanel({ mediaUrl, productType, generationParams }: PreviewPanelProps) {
+export default function PreviewPanel({ mediaUrl, productType, generationParams, onClose }: PreviewPanelProps) {
+  const { showSuccess, showError } = useToast();
   const [isCollapsed, setIsCollapsed] = useState(true); // Start collapsed
   const [panelWidthPercent, setPanelWidthPercent] = useState(50); // Start at 50%
   const [isResizing, setIsResizing] = useState(false);
@@ -61,15 +64,15 @@ export default function PreviewPanel({ mediaUrl, productType, generationParams }
   const MIN_WIDTH_PERCENT = 25;
   const MAX_WIDTH_PERCENT = 75;
 
-  // Check if this is a campaign image
-  const isCampaignImage = generationParams?.isCampaignImage === true;
+  // Check if this is an editable image (all images except videos)
+  const isEditableImage = mediaUrl && productType !== 2 && generationParams?.onEdit;
 
   // Monitor mediaUrl changes for debugging
   useEffect(() => {
     console.log("📷 [PreviewPanel] mediaUrl changed:", mediaUrl);
-    console.log("📷 [PreviewPanel] isCampaignImage:", isCampaignImage);
+    console.log("📷 [PreviewPanel] isEditableImage:", isEditableImage);
     console.log("📷 [PreviewPanel] generationParams:", generationParams);
-  }, [mediaUrl, isCampaignImage, generationParams]);
+  }, [mediaUrl, isEditableImage, generationParams]);
 
   const handleDownload = async () => {
     if (!mediaUrl || isDownloading) return;
@@ -103,7 +106,7 @@ export default function PreviewPanel({ mediaUrl, productType, generationParams }
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download failed:', error);
-      alert('Download fehlgeschlagen. Bitte versuche es erneut.');
+      showError('Download fehlgeschlagen. Bitte versuche es erneut.');
     } finally {
       setIsDownloading(false);
     }
@@ -136,13 +139,13 @@ export default function PreviewPanel({ mediaUrl, productType, generationParams }
       });
 
       if (result.success) {
-        alert('Projekt erfolgreich gespeichert!');
+        showSuccess('Projekt erfolgreich gespeichert!');
       } else {
-        alert(`Fehler beim Speichern: ${result.error}`);
+        showError(`Fehler beim Speichern: ${result.error}`);
       }
     } catch (error: any) {
       console.error('Save failed:', error);
-      alert('Speichern fehlgeschlagen. Bitte versuche es erneut.');
+      showError('Speichern fehlgeschlagen. Bitte versuche es erneut.');
     } finally {
       setIsSaving(false);
     }
@@ -282,9 +285,13 @@ export default function PreviewPanel({ mediaUrl, productType, generationParams }
           Vorschau
         </h2>
         <button
-          onClick={() => setIsCollapsed(true)}
+          onClick={() => {
+            setIsCollapsed(true);
+            onClose?.(); // Clear the preview when closing
+          }}
           className="p-2 rounded-lg hover:bg-gray-700 dark:hover:bg-gray-900 transition-colors"
-          aria-label="Collapse preview panel"
+          aria-label="Close preview panel"
+          title="Vorschau schließen"
         >
           <svg
             className="w-5 h-5 text-gray-400 dark:text-gray-500"
@@ -296,7 +303,7 @@ export default function PreviewPanel({ mediaUrl, productType, generationParams }
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M15 19l-7-7 7-7"
+              d="M6 18L18 6M6 6l12 12"
             />
           </svg>
         </button>
@@ -326,8 +333,8 @@ export default function PreviewPanel({ mediaUrl, productType, generationParams }
               ))}
             </div>
 
-            {/* Campaign Image Edit Section */}
-            {isCampaignImage && (
+            {/* Image Edit Section */}
+            {isEditableImage && (
               <div className="bg-gray-800 dark:bg-gray-900 border-2 border-gray-700 dark:border-gray-800 rounded-2xl p-4">
                 <label className="block text-sm font-medium text-gray-300 dark:text-gray-400 mb-2">
                   Bild bearbeiten:
@@ -339,6 +346,7 @@ export default function PreviewPanel({ mediaUrl, productType, generationParams }
                   rows={3}
                   className="w-full px-3 py-2 bg-gray-700 dark:bg-gray-950 border border-gray-600 dark:border-gray-800 rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500 resize-none"
                   disabled={isEditingCampaignImage}
+                  autoFocus
                 />
                 <button
                   onClick={handleEditCampaignImage}

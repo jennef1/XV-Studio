@@ -5,10 +5,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { supabaseBrowserClient } from "@/lib/supabaseClient";
 import { Database } from "@/types/database";
+import { getUserBusinesses } from "@/lib/businessAccess";
+import { useToast } from "@/components/ToastProvider";
 
 type BusinessProduct = Database["public"]["Tables"]["business_products"]["Row"];
 
 export default function ProductsView() {
+  const { showSuccess, showError, showInfo } = useToast();
   const [products, setProducts] = useState<BusinessProduct[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<BusinessProduct | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -65,25 +68,22 @@ export default function ProductsView() {
         return;
       }
 
-      // Check if business exists (filter out detached businesses)
-      const { data: businessData, error: businessError } = await supabaseBrowserClient
-        .from("businesses")
-        .select("id")
-        .eq("user_id", user.id)
-        .is("detached_at", null)
-        .limit(1);
+      // Get all businesses user has access to
+      const businesses = await getUserBusinesses(user.id, false);
 
-      if (businessError || !businessData || businessData.length === 0) {
+      if (businesses.length === 0) {
         setHasBusiness(false);
         return;
       }
 
-      // Fetch products for the active business only
+      // Get the primary (first) business
+      const primaryBusiness = businesses[0];
+
+      // Fetch products for the primary business
       const { data, error } = await supabaseBrowserClient
         .from("business_products")
         .select("*")
-        .eq("user_id", user.id)
-        .eq("business_id", businessData[0].id)
+        .eq("business_id", primaryBusiness.id)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -175,7 +175,7 @@ export default function ProductsView() {
 
   const handleFetchProductData = async () => {
     if (!productUrl.trim()) {
-      alert("Bitte gib eine Produkt-URL ein");
+      showError("Bitte gib eine Produkt-URL ein");
       return;
     }
 
@@ -185,19 +185,15 @@ export default function ProductsView() {
       const { data: { user } } = await supabaseBrowserClient.auth.getUser();
       if (!user) throw new Error("No user found");
 
-      const { data: businessData } = await supabaseBrowserClient
-        .from("businesses")
-        .select("id")
-        .eq("user_id", user.id)
-        .limit(1)
-        .maybeSingle();
+      const businesses = await getUserBusinesses(user.id, false);
+      if (businesses.length === 0) throw new Error("No business found");
 
-      if (!businessData) throw new Error("No business found");
+      const businessId = businesses[0].id;
 
       console.log("[ProductsView] Calling manual product webhook (import) with:", {
         url: productUrl,
         user_id: user.id,
-        business_id: businessData.id,
+        business_id: businessId,
       });
 
       // Call API endpoint which will create the job and trigger n8n
@@ -209,7 +205,7 @@ export default function ProductsView() {
         body: JSON.stringify({
           url: productUrl,
           user_id: user.id,
-          business_id: businessData.id,
+          business_id: businessId,
         }),
       });
 
@@ -243,10 +239,10 @@ export default function ProductsView() {
       setUploadedImages([]);
       setSelectedProduct(null);
 
-      alert("Produkt wird analysiert. Dies kann einen Moment dauern...");
+      showInfo("Produkt wird analysiert. Dies kann einen Moment dauern...");
     } catch (error: any) {
       console.error("Error fetching product data:", error);
-      alert(error.message || "Fehler beim Abrufen der Produktdaten. Bitte versuche es erneut.");
+      showError(error.message || "Fehler beim Abrufen der Produktdaten. Bitte versuche es erneut.");
       setIsFetching(false);
     }
   };
@@ -299,7 +295,7 @@ export default function ProductsView() {
       }
     } catch (error: any) {
       console.error("Error uploading images:", error);
-      alert(`Fehler beim Hochladen der Bilder: ${error.message || "Bitte versuche es erneut."}`);
+      showError(`Fehler beim Hochladen der Bilder: ${error.message || "Bitte versuche es erneut."}`);
     } finally {
       setIsUploadingImages(false);
     }
@@ -312,12 +308,12 @@ export default function ProductsView() {
 
   const handleAddManualProduct = async () => {
     if (!productName.trim()) {
-      alert("Bitte gib einen Produktnamen ein");
+      showError("Bitte gib einen Produktnamen ein");
       return;
     }
 
     if (!productUrl.trim()) {
-      alert("Bitte gib eine Produkt-URL ein");
+      showError("Bitte gib eine Produkt-URL ein");
       return;
     }
 
@@ -327,19 +323,15 @@ export default function ProductsView() {
       const { data: { user } } = await supabaseBrowserClient.auth.getUser();
       if (!user) throw new Error("No user found");
 
-      const { data: businessData } = await supabaseBrowserClient
-        .from("businesses")
-        .select("id")
-        .eq("user_id", user.id)
-        .limit(1)
-        .maybeSingle();
+      const businesses = await getUserBusinesses(user.id, false);
+      if (businesses.length === 0) throw new Error("No business found");
 
-      if (!businessData) throw new Error("No business found");
+      const businessId = businesses[0].id;
 
       console.log("[ProductsView] Calling manual product webhook with:", {
         url: productUrl,
         user_id: user.id,
-        business_id: businessData.id,
+        business_id: businessId,
       });
 
       // Call API endpoint which will create the job and trigger n8n
@@ -349,7 +341,7 @@ export default function ProductsView() {
         body: JSON.stringify({
           url: productUrl,
           user_id: user.id,
-          business_id: businessData.id,
+          business_id: businessId,
         }),
       });
 
@@ -383,10 +375,10 @@ export default function ProductsView() {
       setUploadedImages([]);
       setSelectedProduct(null);
 
-      alert("Produkt wird analysiert. Dies kann einen Moment dauern...");
+      showInfo("Produkt wird analysiert. Dies kann einen Moment dauern...");
     } catch (error: any) {
       console.error("Error adding product:", error);
-      alert("Fehler beim Hinzufügen des Produkts. Bitte versuche es erneut.");
+      showError("Fehler beim Hinzufügen des Produkts. Bitte versuche es erneut.");
       setIsFetching(false);
     }
   };
@@ -394,7 +386,7 @@ export default function ProductsView() {
   const handleUpdateProduct = async () => {
     if (!selectedProduct) return;
     if (!productName.trim()) {
-      alert("Bitte gib einen Produktnamen ein");
+      showError("Bitte gib einen Produktnamen ein");
       return;
     }
 
@@ -419,10 +411,10 @@ export default function ProductsView() {
       // Exit editing mode
       setIsEditing(false);
 
-      alert("Produkt erfolgreich aktualisiert!");
+      showSuccess("Produkt erfolgreich aktualisiert!");
     } catch (error: any) {
       console.error("Error updating product:", error);
-      alert("Fehler beim Aktualisieren des Produkts. Bitte versuche es erneut.");
+      showError("Fehler beim Aktualisieren des Produkts. Bitte versuche es erneut.");
     }
   };
 
@@ -484,7 +476,7 @@ export default function ProductsView() {
       setShowDeleteConfirm(false);
     } catch (error: any) {
       console.error("Error deleting product:", error);
-      alert("Fehler beim Löschen des Produkts. Bitte versuche es erneut.");
+      showError("Fehler beim Löschen des Produkts. Bitte versuche es erneut.");
     } finally {
       setIsDeleting(false);
     }

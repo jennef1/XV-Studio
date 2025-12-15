@@ -24,28 +24,44 @@ export async function POST(request: NextRequest) {
 
     const { data: existingBusiness, error: checkError } = await supabaseAdminClient
       .from("businesses")
-      .select("id, user_id, company_name, detached_at")
+      .select("id, company_name, detached_at")
       .eq("company_url", normalizedUrl)
       .maybeSingle();
 
     if (existingBusiness) {
       console.log("[Business & Products Webhook] Found existing business:", existingBusiness.id);
 
-      // Re-link user to existing business if detached
-      if (existingBusiness.detached_at !== null) {
-        console.log("[Business & Products Webhook] Re-linking user to detached business");
+      // Check if user is already linked to this business
+      const { data: existingLink } = await supabaseAdminClient
+        .from("business_users")
+        .select("id")
+        .eq("business_id", existingBusiness.id)
+        .eq("user_id", user_id)
+        .maybeSingle();
+
+      if (!existingLink) {
+        // User not linked yet - create junction table entry
+        console.log("[Business & Products Webhook] Linking new user to existing business");
 
         await supabaseAdminClient
-          .from("businesses")
-          .update({ detached_at: null })
-          .eq("id", existingBusiness.id);
+          .from("business_users")
+          .insert({
+            business_id: existingBusiness.id,
+            user_id: user_id,
+            role: 'member', // Subsequent users are members (first user was 'owner')
+            joined_at: new Date().toISOString()
+          });
+
+        console.log("[Business & Products Webhook] Successfully linked user to existing business");
+      } else {
+        console.log("[Business & Products Webhook] User already linked to business");
       }
 
-      // Return immediately without N8N workflow - instant reconnection!
+      // Return immediately without N8N workflow - instant connection!
       return NextResponse.json({
         success: true,
         business_id: existingBusiness.id,
-        message: "Reconnected to existing business",
+        message: "Connected to existing business",
         skipped_scraping: true,
       });
     }
@@ -176,6 +192,22 @@ export async function POST(request: NextRequest) {
         .eq("id", jobId);
 
       console.log("[Business & Products Webhook] Job marked as completed with business_id:", business_id);
+
+      // Link the creator to the new business in junction table
+      if (business_id) {
+        console.log("[Business & Products Webhook] Linking creator to newly created business");
+
+        await supabaseAdminClient
+          .from("business_users")
+          .insert({
+            business_id: business_id,
+            user_id: user_id,
+            role: 'owner', // First user is owner
+            joined_at: new Date().toISOString()
+          });
+
+        console.log("[Business & Products Webhook] Successfully linked creator to business");
+      }
 
       // Now trigger Angebote webhook asynchronously with business_id
       if (business_id) {

@@ -3,6 +3,7 @@ import { Inter, Quicksand } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme-provider";
 import DevAuthLoader from "@/components/DevAuthLoader";
+import { ToastProvider } from "@/components/ToastProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 const quicksand = Quicksand({
@@ -30,8 +31,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <DevAuthLoader />
-          {children}
+          <ToastProvider>
+            <DevAuthLoader />
+            {children}
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

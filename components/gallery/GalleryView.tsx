@@ -7,12 +7,14 @@ import GalleryGrid from "@/components/gallery/GalleryGrid";
 import GalleryFilters from "@/components/gallery/GalleryFilters";
 import EmptyGallery from "@/components/gallery/EmptyGallery";
 import ImageDetailModal from "@/components/gallery/ImageDetailModal";
+import { useToast } from "@/components/ToastProvider";
 
 /**
  * Gallery view component for use in the studio
  * Shows saved projects in the main content area
  */
 export default function GalleryView() {
+  const { showError } = useToast();
   const [projects, setProjects] = useState<SavedProject[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<SavedProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,7 +108,7 @@ export default function GalleryView() {
         setSelectedProject({ ...project, is_favorite: !project.is_favorite });
       }
     } else {
-      alert(`Fehler: ${result.error}`);
+      showError(`Fehler: ${result.error}`);
     }
   };
 

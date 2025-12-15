@@ -12,6 +12,12 @@ interface Message {
   timestamp: string;
   status?: "sending" | "error";
   imageUrls?: string[];
+  mediaThumbnail?: {
+    url: string;
+    type: "image" | "video";
+    workflow?: string;
+    isEdit?: boolean;
+  };
 }
 
 interface ConversationState {
@@ -67,6 +73,16 @@ interface ConversationState {
     type: "image" | "video" | null;
     message?: string;
   };
+  // Generated media history for thumbnails
+  generatedMediaHistory?: Array<{
+    messageId: string;
+    url: string;
+    type: "image" | "video";
+    workflow: string;
+    prompt: string;
+    timestamp: string;
+    isEdit?: boolean;
+  }>;
 }
 
 interface ChatContainerProps {
@@ -133,6 +149,7 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
       type: null,
       message: undefined,
     },
+    generatedMediaHistory: [],
   });
 
   // Transient UI state (not persisted)
@@ -250,6 +267,7 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
           actionDescription: null,
           waitingFor: null,
         },
+        generatedMediaHistory: [],
       });
       onPreviewUpdate?.(null);
       initializedProductRef.current = null;
@@ -674,6 +692,20 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
             },
           });
 
+          // Create thumbnail message
+          const thumbnailMessage = {
+            id: `${Date.now()}-thumbnail`,
+            role: "assistant" as const,
+            content: "",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            mediaThumbnail: {
+              url: result.imageUrl,
+              type: "image" as const,
+              workflow: "bilder_combine",
+              isEdit: false,
+            },
+          };
+
           setCurrentState((prev) => ({
             ...prev,
             currentImageUrl: result.imageUrl,
@@ -696,8 +728,21 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
               type: null,
               message: undefined,
             },
+            generatedMediaHistory: [
+              ...(prev.generatedMediaHistory || []),
+              {
+                messageId: thumbnailMessage.id,
+                url: result.imageUrl,
+                type: "image",
+                workflow: "bilder_combine",
+                prompt: content.trim(),
+                timestamp: thumbnailMessage.timestamp,
+                isEdit: false,
+              },
+            ],
             messages: [
               ...prev.messages,
+              thumbnailMessage,
               {
                 id: Date.now().toString(),
                 role: "assistant",
@@ -822,6 +867,20 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
             },
           });
 
+          // Create thumbnail message
+          const thumbnailMessage = {
+            id: `${Date.now()}-thumbnail`,
+            role: "assistant" as const,
+            content: "",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            mediaThumbnail: {
+              url: result.imageUrl,
+              type: "image" as const,
+              workflow: "bilder_product",
+              isEdit: false,
+            },
+          };
+
           setCurrentState((prev) => ({
             ...prev,
             currentImageUrl: result.imageUrl,
@@ -844,8 +903,21 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
               type: null,
               message: undefined,
             },
+            generatedMediaHistory: [
+              ...(prev.generatedMediaHistory || []),
+              {
+                messageId: thumbnailMessage.id,
+                url: result.imageUrl,
+                type: "image",
+                workflow: "bilder_product",
+                prompt: content.trim(),
+                timestamp: thumbnailMessage.timestamp,
+                isEdit: false,
+              },
+            ],
             messages: [
               ...prev.messages,
+              thumbnailMessage,
               {
                 id: Date.now().toString(),
                 role: "assistant",
@@ -1752,6 +1824,8 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
 
         // Store generation params for saving to gallery
         const generationParams = {
+          isCampaignImage: true,
+          imageUrl: result.imageUrl,
           prompt: payload.prompt,
           workflow: 'bilder_freebird',
           aspectRatio: payload.aspectRatio,
@@ -1759,10 +1833,27 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
           outputFormat: payload.outputFormat,
           hasReferenceImages: payload.hasReferenceImages,
           imageUrls: payload.imageUrls,
+          onEdit: (editPrompt: string) => {
+            handleBilderImageEdit(result.imageUrl, editPrompt);
+          },
         };
 
         // Notify parent about generation params
         onGenerationParamsUpdate?.(generationParams);
+
+        // Create thumbnail message
+        const thumbnailMessage = {
+          id: `${Date.now()}-thumbnail`,
+          role: "assistant" as const,
+          content: "",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          mediaThumbnail: {
+            url: result.imageUrl,
+            type: "image" as const,
+            workflow: "bilder_freebird",
+            isEdit: false,
+          },
+        };
 
         setCurrentState((prev) => ({
           ...prev,
@@ -1775,8 +1866,21 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
           lastGenerationParams: generationParams,
           isComplete: false, // Allow further refinement
           isRefining: true, // Enable refinement mode
+          generatedMediaHistory: [
+            ...(prev.generatedMediaHistory || []),
+            {
+              messageId: thumbnailMessage.id,
+              url: result.imageUrl,
+              type: "image",
+              workflow: "bilder_freebird",
+              prompt: payload.prompt,
+              timestamp: thumbnailMessage.timestamp,
+              isEdit: false,
+            },
+          ],
           messages: [
             ...prev.messages,
+            thumbnailMessage,
             {
               id: Date.now().toString(),
               role: "assistant",
@@ -2051,6 +2155,20 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
             selectedImage,
           });
 
+          // Create thumbnail message for video
+          const videoThumbnailMessage = {
+            id: `${Date.now()}-video-thumbnail`,
+            role: "assistant" as const,
+            content: "",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            mediaThumbnail: {
+              url: videoUrl,
+              type: "video" as const,
+              workflow: "ai_explains",
+              isEdit: false,
+            },
+          };
+
           // Mark conversation as complete and stop generation indicator
           setCurrentState(prev => ({
             ...prev,
@@ -2061,8 +2179,21 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
               type: null,
               message: undefined,
             },
+            generatedMediaHistory: [
+              ...(prev.generatedMediaHistory || []),
+              {
+                messageId: videoThumbnailMessage.id,
+                url: videoUrl,
+                type: "video",
+                workflow: "ai_explains",
+                prompt: videoPrompt,
+                timestamp: videoThumbnailMessage.timestamp,
+                isEdit: false,
+              },
+            ],
             messages: [
               ...prev.messages,
+              videoThumbnailMessage,
               {
                 id: Date.now().toString(),
                 role: "assistant",
@@ -2391,6 +2522,20 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
             product.category
           );
 
+          // Create thumbnail messages for each campaign image
+          const thumbnailMessages = images.map((imageUrl: string, index: number) => ({
+            id: `${Date.now()}-campaign-thumb-${index}`,
+            role: "assistant" as const,
+            content: "",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            mediaThumbnail: {
+              url: imageUrl,
+              type: "image" as const,
+              workflow: "social_media_campaign",
+              isEdit: false,
+            },
+          }));
+
           // Update state with generated images
           setCurrentState(prev => ({
             ...prev,
@@ -2404,8 +2549,21 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
               type: null,
               message: undefined,
             },
+            generatedMediaHistory: [
+              ...(prev.generatedMediaHistory || []),
+              ...images.map((imageUrl: string, index: number) => ({
+                messageId: thumbnailMessages[index].id,
+                url: imageUrl,
+                type: "image" as const,
+                workflow: "social_media_campaign",
+                prompt: additionalComments,
+                timestamp: thumbnailMessages[index].timestamp,
+                isEdit: false,
+              })),
+            ],
             messages: [
               ...prev.messages,
+              ...thumbnailMessages,
               {
                 id: Date.now().toString(),
                 role: "assistant",
@@ -2516,12 +2674,39 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         },
       });
 
+      // Create thumbnail message for edited image
+      const editedThumbnailMessage = {
+        id: `${Date.now()}-thumbnail-edit`,
+        role: "assistant" as const,
+        content: "",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        mediaThumbnail: {
+          url: result.imageUrl,
+          type: "image" as const,
+          workflow: "bilder_edit",
+          isEdit: true,
+        },
+      };
+
       // Update state
       setCurrentState(prev => ({
         ...prev,
         currentImageUrl: result.imageUrl,
+        generatedMediaHistory: [
+          ...(prev.generatedMediaHistory || []),
+          {
+            messageId: editedThumbnailMessage.id,
+            url: result.imageUrl,
+            type: "image",
+            workflow: "bilder_edit",
+            prompt: editPrompt,
+            timestamp: editedThumbnailMessage.timestamp,
+            isEdit: true,
+          },
+        ],
         messages: [
           ...prev.messages,
+          editedThumbnailMessage,
           {
             id: Date.now().toString(),
             role: "assistant",
@@ -2650,6 +2835,20 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
         },
       });
 
+      // Create thumbnail message for edited campaign image
+      const editedThumbnailMessage = {
+        id: `${Date.now()}-campaign-edit-thumbnail`,
+        role: "assistant" as const,
+        content: "",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        mediaThumbnail: {
+          url: result.imageUrl,
+          type: "image" as const,
+          workflow: "campaign_edit",
+          isEdit: true,
+        },
+      };
+
       // Update state with new image
       setCurrentState(prev => ({
         ...prev,
@@ -2659,6 +2858,28 @@ export default function ChatContainer({ selectedProductId, onPreviewUpdate, onGe
           isEditingImage: false,
           editingImageIndex: null,
         },
+        generatedMediaHistory: [
+          ...(prev.generatedMediaHistory || []),
+          {
+            messageId: editedThumbnailMessage.id,
+            url: result.imageUrl,
+            type: "image",
+            workflow: "campaign_edit",
+            prompt: editPrompt,
+            timestamp: editedThumbnailMessage.timestamp,
+            isEdit: true,
+          },
+        ],
+        messages: [
+          ...prev.messages,
+          editedThumbnailMessage,
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: "✅ Dein bearbeitetes Kampagnenbild ist fertig! Schau es dir im Vorschau-Bereich an.",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
       }));
 
     } catch (error: any) {
@@ -3294,6 +3515,20 @@ Wähle jetzt EIN Bild aus, das im Video rotieren soll:
             selectedImage,
           });
 
+          // Create thumbnail message for video
+          const videoThumbnailMessage = {
+            id: `${Date.now()}-video-thumbnail`,
+            role: "assistant" as const,
+            content: "",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            mediaThumbnail: {
+              url: videoUrl,
+              type: "video" as const,
+              workflow: "product_rotation",
+              isEdit: false,
+            },
+          };
+
           // Mark conversation as complete and stop generation indicator
           setCurrentState(prev => ({
             ...prev,
@@ -3304,8 +3539,21 @@ Wähle jetzt EIN Bild aus, das im Video rotieren soll:
               type: null,
               message: undefined,
             },
+            generatedMediaHistory: [
+              ...(prev.generatedMediaHistory || []),
+              {
+                messageId: videoThumbnailMessage.id,
+                url: videoUrl,
+                type: "video",
+                workflow: "product_rotation",
+                prompt: videoPrompt,
+                timestamp: videoThumbnailMessage.timestamp,
+                isEdit: false,
+              },
+            ],
             messages: [
               ...prev.messages,
+              videoThumbnailMessage,
               {
                 id: Date.now().toString(),
                 role: "assistant",
@@ -3636,6 +3884,20 @@ Wähle jetzt EIN Bild aus, das im Video verwendet werden soll:
             selectedImage,
           });
 
+          // Create thumbnail message for video
+          const videoThumbnailMessage = {
+            id: `${Date.now()}-video-thumbnail`,
+            role: "assistant" as const,
+            content: "",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            mediaThumbnail: {
+              url: videoUrl,
+              type: "video" as const,
+              workflow: "user_speaks",
+              isEdit: false,
+            },
+          };
+
           setCurrentState((prev) => ({
             ...prev,
             isComplete: true,
@@ -3643,8 +3905,21 @@ Wähle jetzt EIN Bild aus, das im Video verwendet werden soll:
               isGenerating: false,
               type: null,
             },
+            generatedMediaHistory: [
+              ...(prev.generatedMediaHistory || []),
+              {
+                messageId: videoThumbnailMessage.id,
+                url: videoUrl,
+                type: "video",
+                workflow: "user_speaks",
+                prompt: videoPrompt,
+                timestamp: videoThumbnailMessage.timestamp,
+                isEdit: false,
+              },
+            ],
             messages: [
               ...prev.messages,
+              videoThumbnailMessage,
               {
                 id: Date.now().toString(),
                 role: "assistant",
@@ -3941,6 +4216,20 @@ Wähle jetzt EIN Bild aus, das im Video verwendet werden soll:
             selectedImage,
           });
 
+          // Create thumbnail message for video
+          const videoThumbnailMessage = {
+            id: `${Date.now()}-video-thumbnail`,
+            role: "assistant" as const,
+            content: "",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            mediaThumbnail: {
+              url: videoUrl,
+              type: "video" as const,
+              workflow: "image_to_video",
+              isEdit: false,
+            },
+          };
+
           setCurrentState((prev) => ({
             ...prev,
             isComplete: true,
@@ -3948,8 +4237,21 @@ Wähle jetzt EIN Bild aus, das im Video verwendet werden soll:
               isGenerating: false,
               type: null,
             },
+            generatedMediaHistory: [
+              ...(prev.generatedMediaHistory || []),
+              {
+                messageId: videoThumbnailMessage.id,
+                url: videoUrl,
+                type: "video",
+                workflow: "image_to_video",
+                prompt: videoPrompt,
+                timestamp: videoThumbnailMessage.timestamp,
+                isEdit: false,
+              },
+            ],
             messages: [
               ...prev.messages,
+              videoThumbnailMessage,
               {
                 id: Date.now().toString(),
                 role: "assistant",
@@ -4093,6 +4395,26 @@ Wähle jetzt EIN Bild aus, das im Video verwendet werden soll:
     }
   };
 
+  // Handler for clicking thumbnails in chat - opens media in preview panel
+  const handleMediaThumbnailClick = (url: string, type: "image" | "video") => {
+    console.log("📷 [Thumbnail Click] URL:", url, "Type:", type);
+
+    // Immediately update preview panel
+    onPreviewUpdate?.(url);
+
+    // Update generation params so the preview panel shows correct media type
+    // and enables save/download buttons
+    // IMPORTANT: Include onEdit callback for images so users can re-edit
+    onGenerationParamsUpdate?.({
+      imageUrl: url,
+      mediaType: type,
+      isCampaignImage: true,
+      onEdit: type === "image" ? (editPrompt: string) => {
+        handleBilderImageEdit(url, editPrompt);
+      } : undefined,
+    });
+  };
+
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-950">
       <ChatMessages
@@ -4121,6 +4443,7 @@ Wähle jetzt EIN Bild aus, das im Video verwendet werden soll:
         onImageToVideoImageSelection={selectedProductId === 2 ? handleImageToVideoImageSelection : undefined}
         onImageToVideoInspiration={selectedProductId === 2 ? handleImageToVideoInspiration : undefined}
         onImageToVideoPromptIdeaSelect={selectedProductId === 2 ? handleImageToVideoPromptIdeaSelect : undefined}
+        onMediaThumbnailClick={handleMediaThumbnailClick}
         isGeneratingContent={currentState.generationState?.isGenerating}
         generationType={currentState.generationState?.type || undefined}
         generationMessage={currentState.generationState?.message}

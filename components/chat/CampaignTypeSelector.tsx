@@ -15,6 +15,7 @@ export default function CampaignTypeSelector({ onSelectType }: CampaignTypeSelec
       textHover: "group-hover:text-blue-600 dark:group-hover:text-blue-400",
       recommended: true,
       comingSoon: false,
+      videoUrl: "https://khvcsdzqqmudeuprgzjf.supabase.co/storage/v1/object/public/XVS%20Material/Social%20Media%20Boost_Kampagne.mp4",
     },
     {
       id: "concept" as const,
@@ -38,6 +39,21 @@ export default function CampaignTypeSelector({ onSelectType }: CampaignTypeSelec
     },
   ];
 
+  const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const video = e.currentTarget.querySelector('video');
+    if (video) {
+      video.play();
+    }
+  };
+
+  const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const video = e.currentTarget.querySelector('video');
+    if (video) {
+      video.pause();
+      video.currentTime = 0;
+    }
+  };
+
   return (
     <div className="w-full sm:w-[480px] lg:w-[672px]">
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 my-4">
@@ -45,6 +61,8 @@ export default function CampaignTypeSelector({ onSelectType }: CampaignTypeSelec
           <button
             key={type.id}
             onClick={() => !type.comingSoon && onSelectType(type.id)}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
             disabled={type.comingSoon}
             className={`group relative border-2 rounded-2xl overflow-hidden transition-all border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${
               type.comingSoon
@@ -52,23 +70,34 @@ export default function CampaignTypeSelector({ onSelectType }: CampaignTypeSelec
                 : `hover:shadow-lg ${type.borderHover}`
             }`}
           >
-            {/* Image Preview Placeholder */}
+            {/* Video Preview or Gradient Placeholder */}
             <div className="aspect-square bg-gray-100 dark:bg-gray-900 relative overflow-hidden">
-              {/* Gradient Background with Icon */}
-              <div className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${type.gradient}`}>
-                <span className="text-6xl opacity-90">{type.icon}</span>
-              </div>
+              {/* Video or Gradient Background */}
+              {type.videoUrl ? (
+                <video
+                  src={type.videoUrl}
+                  muted
+                  loop
+                  playsInline
+                  preload="auto"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${type.gradient}`}>
+                  <span className="text-6xl opacity-90">{type.icon}</span>
+                </div>
+              )}
 
               {/* Recommended Badge */}
               {type.recommended && (
-                <div className="absolute top-2 right-2 bg-gradient-to-r from-pink-500 to-red-500 text-white px-2 py-0.5 rounded text-xs font-bold shadow-md">
+                <div className="absolute top-2 right-2 bg-gradient-to-r from-pink-500 to-red-500 text-white px-2 py-0.5 rounded text-xs font-bold shadow-md z-10">
                   Top
                 </div>
               )}
 
               {/* Coming Soon Badge */}
               {type.comingSoon && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-10">
                   <div className="bg-orange-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg">
                     Coming Soon
                   </div>

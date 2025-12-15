@@ -12,6 +12,7 @@ import BilderWorkflowSelector from "./BilderWorkflowSelector";
 import VideoWorkflowSelector from "./VideoWorkflowSelector";
 import SocialBoostSubWorkflowSelector from "./SocialBoostSubWorkflowSelector";
 import ProductImagesMultiSelector from "./ProductImagesMultiSelector";
+import MediaThumbnail from "./MediaThumbnail";
 import { Database } from "@/types/database";
 
 type BusinessProduct = Database["public"]["Tables"]["business_products"]["Row"];
@@ -45,6 +46,13 @@ interface MessageBubbleProps {
   onImageToVideoImageSelection?: (imageUrl: string) => void;
   onImageToVideoInspiration?: () => void;
   onImageToVideoPromptIdeaSelect?: (idea: string) => void;
+  // Media thumbnail handlers
+  mediaThumbnail?: {
+    url: string;
+    type: "image" | "video";
+    isEdit?: boolean;
+  };
+  onMediaThumbnailClick?: (url: string, type: "image" | "video") => void;
 }
 
 export default function MessageBubble({
@@ -70,6 +78,8 @@ export default function MessageBubble({
   onImageToVideoImageSelection,
   onImageToVideoInspiration,
   onImageToVideoPromptIdeaSelect,
+  mediaThumbnail,
+  onMediaThumbnailClick,
 }: MessageBubbleProps) {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
 
@@ -962,6 +972,18 @@ export default function MessageBubble({
                   {idea}
                 </motion.button>
               ))}
+            </div>
+          )}
+
+          {/* Display media thumbnail if present */}
+          {mediaThumbnail && !isUser && onMediaThumbnailClick && (
+            <div className="mt-3">
+              <MediaThumbnail
+                url={mediaThumbnail.url}
+                type={mediaThumbnail.type}
+                isEdit={mediaThumbnail.isEdit}
+                onClick={() => onMediaThumbnailClick(mediaThumbnail.url, mediaThumbnail.type)}
+              />
             </div>
           )}
 

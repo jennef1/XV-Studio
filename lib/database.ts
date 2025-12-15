@@ -1,27 +1,12 @@
 import { supabaseBrowserClient } from "./supabaseClient";
+import { getUserPrimaryBusiness } from "./businessAccess";
 
 /**
  * Get the first business associated with a user
+ * Now uses junction table for multi-user support
  */
 export async function getUserBusiness(userId: string) {
-  try {
-    const { data, error } = await supabaseBrowserClient
-      .from("businesses")
-      .select("*")
-      .eq("user_id", userId)
-      .limit(1)
-      .single();
-
-    if (error) {
-      console.error("Error fetching user business:", error);
-      return null;
-    }
-
-    return data;
-  } catch (error) {
-    console.error("Error in getUserBusiness:", error);
-    return null;
-  }
+  return getUserPrimaryBusiness(userId, false);
 }
 
 /**
@@ -105,13 +90,22 @@ export async function getProductImages(productId: string) {
 
 /**
  * Get all business products for a user that have video concepts
+ * Updated to work with junction table for multi-user support
  */
 export async function getUserBusinessProducts(userId: string) {
   try {
+    const { getUserBusinesses } = await import("./businessAccess");
+    const businesses = await getUserBusinesses(userId, false);
+    const businessIds = businesses.map(b => b.id);
+
+    if (businessIds.length === 0) {
+      return [];
+    }
+
     const { data, error } = await supabaseBrowserClient
       .from("business_products")
       .select("*")
-      .eq("user_id", userId)
+      .in("business_id", businessIds)
       .not("video_concept_1", "is", null)
       .order("created_at", { ascending: false });
 
@@ -129,13 +123,22 @@ export async function getUserBusinessProducts(userId: string) {
 
 /**
  * Get all business products for a user (including those without video concepts)
+ * Updated to work with junction table for multi-user support
  */
 export async function getAllUserBusinessProducts(userId: string) {
   try {
+    const { getUserBusinesses } = await import("./businessAccess");
+    const businesses = await getUserBusinesses(userId, false);
+    const businessIds = businesses.map(b => b.id);
+
+    if (businessIds.length === 0) {
+      return [];
+    }
+
     const { data, error } = await supabaseBrowserClient
       .from("business_products")
       .select("*")
-      .eq("user_id", userId)
+      .in("business_id", businessIds)
       .order("created_at", { ascending: false });
 
     if (error) {

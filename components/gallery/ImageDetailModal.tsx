@@ -5,6 +5,7 @@ import Image from "next/image";
 import type { SavedProject } from "@/types/gallery";
 import { PRODUCT_TYPE_NAMES } from "@/types/gallery";
 import { formatDate, downloadImage, deleteProject } from "@/lib/gallery/galleryService";
+import { useToast } from "@/components/ToastProvider";
 
 interface ImageDetailModalProps {
   project: SavedProject;
@@ -14,6 +15,7 @@ interface ImageDetailModalProps {
 }
 
 export default function ImageDetailModal({ project, onClose, onDelete, onToggleFavorite }: ImageDetailModalProps) {
+  const { showSuccess, showError } = useToast();
   // For videos (product_type: 2), use video_url; otherwise use image_url
   const isVideo = project.product_type === 2;
   const mediaUrl = isVideo && project.video_url ? project.video_url : project.image_url;
@@ -54,7 +56,7 @@ export default function ImageDetailModal({ project, onClose, onDelete, onToggleF
     const result = await downloadImage(mediaUrl, fileName);
 
     if (!result.success) {
-      alert(`Download fehlgeschlagen: ${result.error}`);
+      showError(`Download fehlgeschlagen: ${result.error}`);
     }
   };
 
@@ -72,7 +74,7 @@ export default function ImageDetailModal({ project, onClose, onDelete, onToggleF
       onDelete(project);
       onClose();
     } else {
-      alert(`Löschen fehlgeschlagen: ${result.error}`);
+      showError(`Löschen fehlgeschlagen: ${result.error}`);
     }
   };
 
@@ -98,7 +100,7 @@ export default function ImageDetailModal({ project, onClose, onDelete, onToggleF
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(mediaUrl);
-    alert("Link in die Zwischenablage kopiert!");
+    showSuccess("Link in die Zwischenablage kopiert!");
   };
 
   return (

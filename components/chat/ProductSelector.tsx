@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { supabaseBrowserClient } from "@/lib/supabaseClient";
 import { Database } from "@/types/database";
+import { getUserBusinesses } from "@/lib/businessAccess";
 
 type BusinessProduct = Database["public"]["Tables"]["business_products"]["Row"];
 
@@ -29,10 +30,21 @@ export default function ProductSelector({ onSelectProduct }: ProductSelectorProp
         return;
       }
 
+      // Get all businesses user has access to
+      const businesses = await getUserBusinesses(user.id, false);
+
+      if (businesses.length === 0) {
+        console.log("No businesses found for user");
+        return;
+      }
+
+      const businessIds = businesses.map(b => b.id);
+
+      // Fetch products for all businesses user has access to
       const { data, error } = await supabaseBrowserClient
         .from("business_products")
         .select("*")
-        .eq("user_id", user.id)
+        .in("business_id", businessIds)
         .order("created_at", { ascending: false });
 
       if (error) {

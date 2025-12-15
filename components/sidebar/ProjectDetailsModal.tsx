@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { X, Download, Share2, Trash2 } from "lucide-react";
+import { useToast } from "@/components/ToastProvider";
 
 interface ProjectDetailsModalProps {
   isOpen: boolean;
@@ -22,6 +23,8 @@ export default function ProjectDetailsModal({
   project,
   onDelete,
 }: ProjectDetailsModalProps) {
+  const { showSuccess, showError } = useToast();
+
   useEffect(() => {
     console.log("Modal state changed:", { isOpen, project });
   }, [isOpen, project]);
@@ -61,7 +64,7 @@ export default function ProjectDetailsModal({
       document.body.removeChild(a);
     } catch (error) {
       console.error("Download failed:", error);
-      alert("Failed to download the file");
+      showError("Failed to download the file");
     }
   };
 
@@ -86,7 +89,7 @@ export default function ProjectDetailsModal({
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(project.image_url);
-    alert("Link copied to clipboard!");
+    showSuccess("Link copied to clipboard!");
   };
 
   const handleDelete = () => {

@@ -6,6 +6,8 @@ import { supabaseBrowserClient } from "@/lib/supabaseClient";
 import { Database } from "@/types/database";
 import LoadingModal from "@/components/LoadingModal";
 import BusinessOnboardingLoader from "@/components/business/BusinessOnboardingLoader";
+import { getUserPrimaryBusiness } from "@/lib/businessAccess";
+import { useToast } from "@/components/ToastProvider";
 
 type Business = Database["public"]["Tables"]["businesses"]["Row"];
 
@@ -15,6 +17,7 @@ interface BusinessProfileViewProps {
 }
 
 export default function BusinessProfileView({ onNavigateToProducts, onBusinessCreated }: BusinessProfileViewProps = {}) {
+  const { showSuccess, showError, showInfo } = useToast();
   const [business, setBusiness] = useState<Business | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -66,23 +69,12 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
         return;
       }
 
-      const { data, error } = await supabaseBrowserClient
-        .from("businesses")
-        .select("*")
-        .eq("user_id", user.id)
-        .is("detached_at", null)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Use new helper function that checks junction table
+      const business = await getUserPrimaryBusiness(user.id, false);
 
-      if (error) {
-        console.error("Error fetching business:", error);
-        return;
-      }
-
-      // data will be null if no business exists, which is fine
-      setBusiness(data);
-      setEditedBusiness(data);
+      // business will be null if no business exists, which is fine
+      setBusiness(business);
+      setEditedBusiness(business);
     } catch (error) {
       console.error("Error:", error);
     } finally {
@@ -297,10 +289,10 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
 
       // Check if we reconnected to existing business (instant reconnection)
       if (data.skipped_scraping) {
-        console.log("Reconnected to existing business:", data.business_id);
+        console.log("Connected to existing business:", data.business_id);
 
         // Show popup message
-        alert("Für diese Seite besteht bereits ein Firmenprofil. Wir verlinken dich direkt damit.");
+        showInfo("Für diese Seite besteht bereits ein Firmenprofil. Du wurdest automatisch hinzugefügt.");
 
         // Fetch and show business immediately (no polling needed!)
         await fetchBusinessProfile();
@@ -546,7 +538,7 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
       setShowDeleteConfirm(false);
     } catch (error) {
       console.error("Error deleting business:", error);
-      alert("Fehler beim Löschen des Firmenprofils. Bitte versuche es erneut.");
+      showError("Fehler beim Löschen des Firmenprofils. Bitte versuche es erneut.");
     } finally {
       setIsDeleting(false);
     }

@@ -90,6 +90,36 @@ export interface Database {
         };
         Relationships: [];
       };
+      business_users: {
+        Row: {
+          id: string;
+          business_id: string;
+          user_id: string;
+          role: string;
+          joined_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          user_id: string;
+          role?: string;
+          joined_at?: string;
+        };
+        Update: {
+          business_id?: string;
+          user_id?: string;
+          role?: string;
+          joined_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "business_users_business_id_fkey";
+            columns: ["business_id"];
+            referencedRelation: "businesses";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       saved_projects: {
         Row: {
           id: string;

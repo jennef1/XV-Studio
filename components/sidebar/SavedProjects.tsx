@@ -4,10 +4,12 @@ import { useState, useEffect } from "react";
 import { supabaseBrowserClient } from "@/lib/supabaseClient";
 import ProjectDetailsModal from "./ProjectDetailsModal";
 import type { Database } from "@/types/database";
+import { useToast } from "@/components/ToastProvider";
 
 type SavedProject = Database["public"]["Tables"]["saved_projects"]["Row"];
 
 export default function SavedProjects() {
+  const { showSuccess, showError } = useToast();
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<SavedProject | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,15 +69,15 @@ export default function SavedProjects() {
 
       if (error) {
         console.error("Error deleting project:", error);
-        alert("Failed to delete the project");
+        showError("Failed to delete the project");
         return;
       }
 
       setSavedProjects((prev) => prev.filter((p) => p.id !== projectId));
-      alert("Project deleted successfully");
+      showSuccess("Project deleted successfully");
     } catch (error) {
       console.error("Error deleting project:", error);
-      alert("Failed to delete the project");
+      showError("Failed to delete the project");
     }
   };
 

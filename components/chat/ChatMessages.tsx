@@ -12,6 +12,12 @@ interface Message {
   timestamp: string;
   status?: "sending" | "error";
   imageUrls?: string[];
+  mediaThumbnail?: {
+    url: string;
+    type: "image" | "video";
+    workflow?: string;
+    isEdit?: boolean;
+  };
 }
 
 interface ChatMessagesProps {
@@ -39,6 +45,8 @@ interface ChatMessagesProps {
   onImageToVideoImageSelection?: (imageUrl: string) => void;
   onImageToVideoInspiration?: () => void;
   onImageToVideoPromptIdeaSelect?: (idea: string) => void;
+  // Media thumbnail handler
+  onMediaThumbnailClick?: (url: string, type: "image" | "video") => void;
   // Generation state
   isGeneratingContent?: boolean;
   generationType?: "image" | "video";
@@ -64,6 +72,7 @@ export default function ChatMessages({
   onImageToVideoImageSelection,
   onImageToVideoInspiration,
   onImageToVideoPromptIdeaSelect,
+  onMediaThumbnailClick,
   isGeneratingContent,
   generationType,
   generationMessage,
@@ -134,6 +143,8 @@ export default function ChatMessages({
                 onImageToVideoImageSelection={onImageToVideoImageSelection}
                 onImageToVideoInspiration={onImageToVideoInspiration}
                 onImageToVideoPromptIdeaSelect={onImageToVideoPromptIdeaSelect}
+                mediaThumbnail={message.mediaThumbnail}
+                onMediaThumbnailClick={onMediaThumbnailClick}
               />
             );
           })}

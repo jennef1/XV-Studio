@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState, useRef } from "react";
+import { FormEvent, useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ChatInputProps {
@@ -13,6 +13,14 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
   const [isFocused, setIsFocused] = useState(false);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-focus the textarea when it becomes enabled (assistant finishes responding)
+  useEffect(() => {
+    if (!disabled && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [disabled]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -130,6 +138,7 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
             )}
 
             <textarea
+              ref={textareaRef}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onFocus={() => setIsFocused(true)}
@@ -137,6 +146,7 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
               placeholder="Send a message..."
               rows={1}
               disabled={disabled}
+              autoFocus
               className="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 min-h-[3rem] resize-none disabled:opacity-50 disabled:cursor-not-allowed"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
