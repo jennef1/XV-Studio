@@ -39,6 +39,16 @@ export async function POST(request: NextRequest) {
         .eq("user_id", user_id)
         .maybeSingle();
 
+      // If business was detached, un-detach it (remove soft-delete)
+      // This needs to happen regardless of whether user is already linked
+      if (existingBusiness.detached_at) {
+        console.log("[Business & Products Webhook] Business was detached, un-detaching it");
+        await supabaseAdminClient
+          .from("businesses")
+          .update({ detached_at: null })
+          .eq("id", existingBusiness.id);
+      }
+
       if (!existingLink) {
         // User not linked yet - create junction table entry
         console.log("[Business & Products Webhook] Linking new user to existing business");
