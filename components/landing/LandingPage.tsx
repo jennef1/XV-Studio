@@ -5,6 +5,7 @@ import LandingHeader from "./LandingHeader";
 import HeroSection from "./HeroSection";
 import HowItWorksSection from "./HowItWorksSection";
 import DiscoverSection from "./DiscoverSection";
+import PricingSection from "./PricingSection";
 import FAQSection from "./FAQSection";
 import LoginModal from "./LoginModal";
 
@@ -19,6 +20,7 @@ export default function LandingPage() {
       </div>
       <HowItWorksSection />
       <DiscoverSection />
+      <PricingSection />
       <FAQSection />
 
       <LoginModal
