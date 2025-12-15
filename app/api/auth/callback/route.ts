@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabaseServer";
+import { createServerClient } from "@supabase/ssr";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -9,8 +9,27 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     try {
-      // Create server client that can manage cookies
-      const supabase = await createServerClient();
+      // Create response object first
+      const response = NextResponse.redirect(`${requestUrl.origin}/studio`);
+
+      // Create server client that can set cookies in the response
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return request.cookies.getAll();
+            },
+            setAll(cookiesToSet) {
+              // Set cookies in the response
+              cookiesToSet.forEach(({ name, value, options }) => {
+                response.cookies.set(name, value, options);
+              });
+            },
+          },
+        }
+      );
 
       // Exchange the code for a session
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
@@ -23,11 +42,7 @@ export async function GET(request: NextRequest) {
 
       console.log("Session created successfully for user:", data.user?.email);
 
-      // Create a response that redirects to studio
-      const response = NextResponse.redirect(`${requestUrl.origin}/studio`);
-
-      // The session should already be set in cookies by the storage handlers
-      // but let's ensure the response preserves them
+      // Return response with cookies set
       return response;
     } catch (error) {
       console.error("Error in OAuth callback:", error);
