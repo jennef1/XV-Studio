@@ -64,7 +64,7 @@ export default function PricingSection() {
     {
       id: "image-to-video",
       title: "Aus Bild und Text ein Video generieren",
-      price: "CHF 35.-",
+      price: "CHF 40.-",
       duration: "8 sec",
       icon: "🎬",
       gradient: "from-green-400 to-emerald-400",
