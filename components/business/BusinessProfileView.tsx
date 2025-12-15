@@ -525,7 +525,11 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          user_id: session.user.id,
+        }),
       });
 
       if (!response.ok) {
@@ -536,6 +540,9 @@ export default function BusinessProfileView({ onNavigateToProducts, onBusinessCr
       setBusiness(null);
       setEditedBusiness(null);
       setShowDeleteConfirm(false);
+
+      // Show success message
+      showSuccess("Firmenprofil erfolgreich gelöscht");
     } catch (error) {
       console.error("Error deleting business:", error);
       showError("Fehler beim Löschen des Firmenprofils. Bitte versuche es erneut.");
