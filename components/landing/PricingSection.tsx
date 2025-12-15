@@ -6,7 +6,7 @@ export default function PricingSection() {
   const bilderWorkflows = [
     {
       id: "product",
-      title: "Setze dein Produkt ein",
+      title: "Aus einem Bild ein neues kreieren",
       price: "CHF 10.-",
       icon: "📦",
       gradient: "from-purple-400 to-pink-400",
@@ -15,7 +15,7 @@ export default function PricingSection() {
     },
     {
       id: "combine",
-      title: "Kombiniere Bilder",
+      title: "Bilder zu einem neuen Bild kombinieren",
       price: "CHF 10.-",
       icon: "🎨",
       gradient: "from-blue-400 to-cyan-400",
@@ -24,7 +24,7 @@ export default function PricingSection() {
     },
     {
       id: "freebird",
-      title: "Free Bird",
+      title: "Ein neues Bild nach deinen Ideen erstellen",
       price: "CHF 5.-",
       icon: "🚀",
       gradient: "from-green-400 to-emerald-400",
@@ -45,7 +45,7 @@ export default function PricingSection() {
   const videoWorkflows = [
     {
       id: "product-rotation",
-      title: "Lass dein Produkt im Glanz rotieren",
+      title: "Rotierendes Produkt im Glanz",
       price: "CHF 40.-",
       duration: "8 sec",
       icon: "🔄",
@@ -54,7 +54,7 @@ export default function PricingSection() {
     },
     {
       id: "user-speaks",
-      title: "Kunden Testimonial Highlight",
+      title: "KI spricht über dein Angebot",
       price: "CHF 40.-",
       duration: "8 sec",
       icon: "🗣️",
@@ -63,7 +63,7 @@ export default function PricingSection() {
     },
     {
       id: "image-to-video",
-      title: "Image to Video",
+      title: "Aus Bild und Text ein Video generieren",
       price: "CHF 35.-",
       duration: "8 sec",
       icon: "🎬",
@@ -72,7 +72,7 @@ export default function PricingSection() {
     },
     {
       id: "inspirational",
-      title: "Inspirationsvideo für dein Produkt",
+      title: "Inspirierendes Video generieren",
       price: "CHF 80.-",
       duration: "16 sec",
       icon: "✨",
@@ -81,7 +81,7 @@ export default function PricingSection() {
     },
     {
       id: "ai-explains",
-      title: "Stelle dein Produkt in&apos;s echte Leben",
+      title: "Erklärvideo mit Fokus auf Vorteile",
       price: "CHF 120.-",
       duration: "24 sec",
       icon: "🤖",

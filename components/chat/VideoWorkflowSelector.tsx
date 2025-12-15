@@ -10,7 +10,7 @@ export default function VideoWorkflowSelector({ onSelectWorkflow }: VideoWorkflo
   const workflows = [
     {
       id: "product-rotation" as const,
-      title: "Lass dein Produkt im Glanz rotieren",
+      title: "Rotierendes Produkt im Glanz",
       price: "CHF 40.-",
       duration: "8 sec",
       icon: "🔄",
@@ -21,7 +21,7 @@ export default function VideoWorkflowSelector({ onSelectWorkflow }: VideoWorkflo
     },
     {
       id: "user-speaks" as const,
-      title: "Kunden Testimonial Highlight",
+      title: "KI spricht über dein Angebot",
       price: "CHF 40.-",
       duration: "8 sec",
       icon: "🗣️",
@@ -32,7 +32,7 @@ export default function VideoWorkflowSelector({ onSelectWorkflow }: VideoWorkflo
     },
     {
       id: "image-to-video" as const,
-      title: "Image to Video",
+      title: "Aus Bild und Text ein Video generieren",
       price: "CHF 35.-",
       duration: "8 sec",
       icon: "🎬",
@@ -43,7 +43,7 @@ export default function VideoWorkflowSelector({ onSelectWorkflow }: VideoWorkflo
     },
     {
       id: "inspirational" as const,
-      title: "Inspirationsvideo für dein Produkt",
+      title: "Inspirierendes Video generieren",
       price: "CHF 80.-",
       duration: "16 sec",
       icon: "✨",
@@ -54,7 +54,7 @@ export default function VideoWorkflowSelector({ onSelectWorkflow }: VideoWorkflo
     },
     {
       id: "ai-explains" as const,
-      title: "Stelle dein Produkt in's echte Leben",
+      title: "Erklärvideo mit Fokus auf Vorteile",
       price: "CHF 120.-",
       duration: "24 sec",
       icon: "🤖",

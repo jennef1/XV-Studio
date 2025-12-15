@@ -8,7 +8,7 @@ export default function BilderWorkflowSelector({ onSelectWorkflow }: BilderWorkf
   const workflows = [
     {
       id: "product" as const,
-      title: "Setze dein Produkt ein",
+      title: "Aus einem Bild ein neues kreieren",
       price: "CHF 10.-",
       icon: "📦",
       gradient: "from-purple-400 to-pink-400",
@@ -19,7 +19,7 @@ export default function BilderWorkflowSelector({ onSelectWorkflow }: BilderWorkf
     },
     {
       id: "combine" as const,
-      title: "Kombiniere Bilder",
+      title: "Bilder zu einem neuen Bild kombinieren",
       price: "CHF 10.-",
       icon: "🎨",
       gradient: "from-blue-400 to-cyan-400",
@@ -30,7 +30,7 @@ export default function BilderWorkflowSelector({ onSelectWorkflow }: BilderWorkf
     },
     {
       id: "freebird" as const,
-      title: "Free Bird",
+      title: "Ein neues Bild nach deinen Ideen erstellen",
       price: "CHF 5.-",
       icon: "🚀",
       gradient: "from-green-400 to-emerald-400",
