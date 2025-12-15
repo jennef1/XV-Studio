@@ -4059,6 +4059,7 @@ Wähle jetzt EIN Bild aus, das im Video verwendet werden soll:
           setCurrentState((prev) => ({
             ...prev,
             isComplete: true,
+            isAwaitingRestart: true,
             generationState: {
               isGenerating: false,
               type: null,
@@ -4081,7 +4082,7 @@ Wähle jetzt EIN Bild aus, das im Video verwendet werden soll:
               {
                 id: Date.now().toString(),
                 role: "assistant",
-                content: `✓ Dein Video ist fertig! Du kannst es jetzt im Vorschaufenster sehen.`,
+                content: `Dein Video wurde erfolgreich erstellt! Du kannst es jetzt in der Vorschau sehen.\n\nMöchtest du ein neues Video erstellen?`,
                 timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
               },
             ],
@@ -4391,6 +4392,7 @@ Wähle jetzt EIN Bild aus, das im Video verwendet werden soll:
           setCurrentState((prev) => ({
             ...prev,
             isComplete: true,
+            isAwaitingRestart: true,
             generationState: {
               isGenerating: false,
               type: null,
@@ -4413,7 +4415,7 @@ Wähle jetzt EIN Bild aus, das im Video verwendet werden soll:
               {
                 id: Date.now().toString(),
                 role: "assistant",
-                content: `✓ Dein Video ist fertig! Du kannst es jetzt im Vorschaufenster sehen.`,
+                content: `Dein Video wurde erfolgreich erstellt! Du kannst es jetzt in der Vorschau sehen.\n\nMöchtest du ein neues Video erstellen?`,
                 timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
               },
             ],
